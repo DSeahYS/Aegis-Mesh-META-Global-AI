@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
+import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import {
   Layers,
@@ -129,7 +130,7 @@ const DEBRIS_CATALOG_OPTIONS = [
     count: 3,
     color: '#f97316',
     dangerLevel: 'HIGH',
-    alt: '485 km (82.6°)',
+    alt: '485 km (82.6Â°)',
   },
   {
     id: 'fengyun-1c',
@@ -137,7 +138,7 @@ const DEBRIS_CATALOG_OPTIONS = [
     count: 1984,
     color: '#ff3355',
     dangerLevel: 'CRITICAL',
-    alt: '865 km (98.6°)',
+    alt: '865 km (98.6Â°)',
   },
   {
     id: 'iridium-33',
@@ -145,7 +146,7 @@ const DEBRIS_CATALOG_OPTIONS = [
     count: 110,
     color: '#fbbf24',
     dangerLevel: 'HIGH',
-    alt: '790 km (86.4°)',
+    alt: '790 km (86.4Â°)',
   },
   {
     id: 'cosmos-2251',
@@ -153,7 +154,7 @@ const DEBRIS_CATALOG_OPTIONS = [
     count: 586,
     color: '#fb923c',
     dangerLevel: 'HIGH',
-    alt: '790 km (74.0°)',
+    alt: '790 km (74.0Â°)',
   },
   {
     id: 'sl-16',
@@ -161,7 +162,7 @@ const DEBRIS_CATALOG_OPTIONS = [
     count: 294,
     color: '#d946ef',
     dangerLevel: 'ELEVATED',
-    alt: '600-950 km (71.0°)',
+    alt: '600-950 km (71.0Â°)',
   },
   {
     id: 'leo-general',
@@ -172,6 +173,44 @@ const DEBRIS_CATALOG_OPTIONS = [
     alt: '350-1400 km',
   },
 ];
+
+function createSunGlowTexture(): THREE.Texture | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255, 244, 214, 1)');
+  g.addColorStop(0.25, 'rgba(255, 224, 168, 0.55)');
+  g.addColorStop(0.6, 'rgba(255, 196, 110, 0.16)');
+  g.addColorStop(1, 'rgba(255, 180, 90, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
+
+const SunGlow: React.FC = () => {
+  const tex = useMemo(() => createSunGlowTexture(), []);
+  if (!tex) return null;
+  return (
+    <sprite position={[88, 40, 68]} scale={[54, 54, 1]}>
+      <spriteMaterial
+        map={tex}
+        color="#ffe9c4"
+        transparent
+        opacity={0.5}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </sprite>
+  );
+};
 
 // Inner 3D Scene executing useFrame and rendering all orbital assets
 const SceneContent: React.FC<{
@@ -334,6 +373,7 @@ const SceneContent: React.FC<{
     <>
       {/* Central Realistic Earth */}
       <Earth />
+      <SunGlow />
 
       {/* Unique Orbital Plane Tracks */}
       {showOrbits &&
@@ -353,6 +393,8 @@ const SceneContent: React.FC<{
       {/* Upgraded 20,000+ Particle Debris Field with dynamic catalog filtering */}
       <DebrisField
         activeCatalogs={activeCatalogs}
+        pointSize={0.048}
+        opacity={0.62}
         isPropagating={isPropagating}
         visible={showDebris}
         onParticleHover={onParticleHover}
@@ -396,6 +438,7 @@ const SceneContent: React.FC<{
             status={sat.status}
             position={pos}
             isSelected={isSel}
+            showLabel={sat.id === 'AEGIS-04'}
             orbitalElements={sat.elements}
             hardware={sat.hardware}
             health={sat.health}
@@ -444,6 +487,7 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
   const [showSwarm, setShowSwarm] = useState(true);
   const [showLinks, setShowLinks] = useState(true);
   const [isPropagating, setIsPropagating] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(true);
   const [isCatalogMenuOpen, setIsCatalogMenuOpen] = useState(false);
   const [debrisSearchQuery, setDebrisSearchQuery] = useState('');
 
@@ -520,6 +564,7 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
   const handleResetCamera = useCallback(() => {
     if (controlsRef.current) {
       controlsRef.current.reset();
+      setAutoRotate(true);
     }
   }, []);
 
@@ -539,12 +584,12 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
 
           <div className="flex items-center gap-1.5 border-l border-zinc-700/80 pl-2 text-[10px] font-sans text-zinc-400">
             <span className="text-emerald-500 font-semibold">12/12</span> NODES
-            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-600">â€¢</span>
             <span className="text-blue-400 font-semibold">
               {objectMetrics.swarmCount.toLocaleString()}
             </span>{' '}
             SWARM
-            <span className="text-zinc-600">•</span>
+            <span className="text-zinc-600">â€¢</span>
             <span className="text-amber-400 font-semibold">
               {objectMetrics.debrisCount.toLocaleString()}
             </span>{' '}
@@ -781,7 +826,7 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
               onClick={() => selectSatellite(null)}
               className="text-zinc-400 hover:text-zinc-100 px-1 font-mono text-sm"
             >
-              ✕
+              âœ•
             </button>
           </div>
 
@@ -795,7 +840,7 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
             <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800">
               <div className="text-zinc-400 text-[10px]">INCLINATION</div>
               <div className="text-blue-300 font-semibold">
-                {selectedSatData.orbitalElements.inclination}°
+                {selectedSatData.orbitalElements.inclination}Â°
               </div>
             </div>
             <div className="bg-zinc-950 p-1.5 rounded border border-zinc-800">
@@ -841,15 +886,15 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
                   <span>
                     THREAT: <span className="text-rose-400 font-bold">{hoveredDebris.dangerLevel}</span>
                   </span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>
                     ALT: <span className="text-blue-300 font-semibold">{hoveredDebris.altitudeKm} km</span>
                   </span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>
-                    INC: <span className="text-zinc-200 font-semibold">{hoveredDebris.inclinationDeg}°</span>
+                    INC: <span className="text-zinc-200 font-semibold">{hoveredDebris.inclinationDeg}Â°</span>
                   </span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>
                     VEL: <span className="text-emerald-500 font-semibold">{hoveredDebris.velocityKmS} km/s</span>
                   </span>
@@ -865,7 +910,7 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
                 </div>
                 <div className="text-[10px] text-zinc-300 flex items-center gap-2 mt-0.5">
                   <span>{hoveredSwarmSat.constellation || 'Mega-Constellation'}</span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>Alt: {hoveredSwarmSat.altitudeKm ?? 550} km</span>
                 </div>
               </div>
@@ -874,11 +919,26 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
         </div>
       )}
 
+      {/* Scene Legend */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-sm bg-zinc-950/85 border border-zinc-800 text-[10px] font-mono text-zinc-400 pointer-events-none">
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" /> AEGIS NODES</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-cyan-400" /> SWARM</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500" /> DEBRIS CRITICAL</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400" /> DEBRIS HIGH</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-sky-400" /> DEBRIS MODERATE</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-purple-400 inline-block" /> ISL QKD</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-cyan-400 inline-block" /> ISL LASER</span>
+      </div>
+
       {/* Main 3D React Three Fiber Canvas */}
       <Canvas
-        camera={{ position: [0, 16, 26], fov: 45, near: 0.1, far: 2000 }}
+        camera={{ position: [13, 13, 21], fov: 42, near: 0.1, far: 2000 }}
+        gl={{ antialias: true }}
+        dpr={[1, 1.75]}
         className="w-full h-full"
       >
+        <color attach="background" args={['#01030a']} />
+
         {/* Deep space ambient lighting for realistic contrast */}
         <ambientLight intensity={0.14} color="#091428" />
 
@@ -931,7 +991,9 @@ export const OrbitalScene: React.FC<OrbitalSceneProps> = ({
           ref={controlsRef}
           enableDamping
           dampingFactor={0.06}
-          autoRotate={false}
+          autoRotate={autoRotate}
+          autoRotateSpeed={0.45}
+          onStart={() => setAutoRotate(false)}
           minDistance={7.5}
           maxDistance={90}
         />

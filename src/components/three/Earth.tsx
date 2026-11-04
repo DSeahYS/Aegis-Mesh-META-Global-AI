@@ -53,7 +53,7 @@ const EarthInner: React.FC = () => {
       fragmentShader: atmosphereFragmentShader,
       uniforms: {
         glowColor: { value: new THREE.Color('#4db8ff') },
-        intensity: { value: 1.4 },
+        intensity: { value: 1.65 },
       },
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
@@ -69,7 +69,7 @@ const EarthInner: React.FC = () => {
       fragmentShader: atmosphereFragmentShader,
       uniforms: {
         glowColor: { value: new THREE.Color('#1a6fff') },
-        intensity: { value: 0.7 },
+        intensity: { value: 0.85 },
       },
       side: THREE.BackSide,
       blending: THREE.AdditiveBlending,
@@ -134,7 +134,7 @@ const EarthInner: React.FC = () => {
             map={cloudsMap}
             alphaMap={cloudsMap}
             transparent
-            opacity={0.42}
+            opacity={0.5}
             depthWrite={false}
             roughness={1.0}
             metalness={0}

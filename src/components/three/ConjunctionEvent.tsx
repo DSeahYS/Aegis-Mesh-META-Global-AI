@@ -145,7 +145,7 @@ export const ConjunctionEvent: React.FC<ConjunctionEventProps> = ({
         <Html
           position={[0, baseRadius + 0.15, 0]}
           center
-          distanceFactor={20}
+          distanceFactor={13}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           <div className="flex flex-col items-center">

@@ -10,6 +10,7 @@ export interface SatelliteNodeProps {
   id: string;
   name?: string;
   isSelected?: boolean;
+  showLabel?: boolean;
   onClick?: () => void;
   orbitalElements?: {
     semiMajorAxis: number;
@@ -31,12 +32,33 @@ export interface SatelliteNodeProps {
   };
 }
 
+function createNodeGlowTexture(): THREE.CanvasTexture | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.35)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
+
 export const SatelliteNode: React.FC<SatelliteNodeProps> = ({
   position,
   status,
   id,
   name,
   isSelected = false,
+  showLabel = false,
   onClick,
   orbitalElements,
   hardware,
@@ -66,6 +88,7 @@ export const SatelliteNode: React.FC<SatelliteNodeProps> = ({
   };
 
   const nodeColor = getColor(status);
+  const glowTexture = useMemo(() => createNodeGlowTexture(), []);
   const isManeuvering = status.toLowerCase() === 'maneuvering';
 
   // Orbital Calculations
@@ -152,6 +175,20 @@ export const SatelliteNode: React.FC<SatelliteNodeProps> = ({
         <sphereGeometry args={[0.22, 12, 12]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
+
+      {/* Always-on status halo so nodes read at globe scale */}
+      {glowTexture && (
+        <sprite scale={[1.3, 1.3, 1]}>
+          <spriteMaterial
+            map={glowTexture}
+            color={nodeColor}
+            transparent
+            opacity={isSelected ? 0.9 : status.toLowerCase() === 'critical' ? 0.85 : 0.55}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </sprite>
+      )}
 
       {/* Rotating Satellite Bus Group (Bus + Antenna Dish + Optics) */}
       <group ref={busRef}>
@@ -302,6 +339,20 @@ export const SatelliteNode: React.FC<SatelliteNodeProps> = ({
             depthWrite={false}
           />
         </mesh>
+      )}
+
+      {/* Permanent callsign tag for priority nodes */}
+      {showLabel && !hovered && !isSelected && (
+        <Html
+          position={[0, 0.58, 0]}
+          center
+          distanceFactor={18}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          <div className="px-1.5 py-0.5 rounded-sm bg-red-950/85 border border-red-500/70 text-[9px] font-mono font-bold text-red-200 tracking-wider whitespace-nowrap">
+            {id} · CRITICAL
+          </div>
+        </Html>
       )}
 
       {/* Rich Aerospace Dark HUD Telemetry Tooltip on Hover or Selection */}

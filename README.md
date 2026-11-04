@@ -8,7 +8,9 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green.svg?style=for-the-badge)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 
-> **One-sentence pitch:** AEGIS-MESH pushes collision assessment and evasion planning from ground stations to the satellite's own edge processor, cutting the decision loop from hours to sub-second—demonstrated with a verified Foster Pc engine, a physics rule pipeline, and a live 3D visualization.
+> **One-sentence pitch:** AEGIS-MESH is an oracle-first neuro-symbolic flight director for the Meta Global AI Developer Hackathon: deterministic V&V, HJI reachability and CBF certificates run **before** Muse Spark 1.3 / Muse Wonder 1.0 are allowed to explain, recover or synthesize a maneuver — so the AI can reason about spaceflight without hallucinating physics.
+
+> **Judge in 2 minutes:** open the app → the **Mission Briefing** tour teleports you through the 3D globe, SAM 3.1 vision seam, closed-loop ABORT→EXECUTE recovery and 16 live V&V oracles. One command runs the whole stack: `docker compose up --build` → http://localhost:5173 (API docs: http://localhost:8000/docs).
 
 🚀 **[Looking for deep mathematical proofs and system architecture? Read the Detailed Technical Guide (Nerd's Guide) here!](README_DETAILED.md)**
 
@@ -40,7 +42,7 @@ Space debris is the #1 long-term threat to sustainable LEO operations. Ground-ba
 | **CDM parsing & validation** | ✅ Implemented | CCSDS 508.0-B-1 / ISO 19389 structural validator |
 | **Physics rule pipeline** | ✅ Implemented | Propellant budget (Tsiolkovsky), burn time, perigee floor — with fault injection |
 | **2-state HJ reachability** | ✅ Implemented (simplified) | 2-state double integrator with 3 control values. NOT the 4-state HCW model. |
-| **CBF safety filter** | ✅ Implemented (simplified) | Closed-form projection, not a general QP. Thrust clipping breaks formal guarantee. |
+| **CBF safety filter** | ✅ Implemented (simplified) | Closed-form IC-CBF projection with penalized slack (no naive thrust clipping); not a general QP solver |
 | **Edge Retrieval Engine** | ⚠️ Prototype (untrained) | Seeded-random 256×16 codebook. Architecture demo only — not trained via InfoNCE. |
 | **3D globe with real debris** | ✅ Implemented | 6,000+ real Celestrak TLE objects, SGP4-propagated |
 | **GPU hardware profiler** | 🔶 Simulated UI | All metrics (latency, power, temp) are `Math.random()` — for demonstration only |
@@ -62,7 +64,7 @@ Space debris is the #1 long-term threat to sustainable LEO operations. Ground-ba
 2. **Angles-only orbit determination:** A single camera provides no range. Computing Pc and covariance from one observer in seconds is an open research problem.
 3. **Untrained retrieval model:** The "Edge Retrieval Engine" (formerly CLM) uses seeded random weights, not a trained model. It demonstrates the retrieval architecture only.
 4. **Simplified HJ model:** The reachability solver uses a 2-state double integrator, not the 4-state HCW equations described in the research docs. This is a simplification.
-5. **CBF saturation:** Clipping thrust to `u_max` in the CBF filter breaks the formal forward-invariance guarantee. A proper feasibility check or slack variable is needed.
+5. **CBF scope:** The CBF filter now uses an input-constrained (IC-CBF) penalized slack formulation instead of naive post-hoc clipping, but it remains a closed-form projection — not a general QP solver — and its certificate is only as strong as the simplified dynamics it filters.
 6. **Latency claims:** The "16 ms" figure covers only the dot-product codebook lookup. The full pipeline (Pc + rules + HJ + CBF) in Python is slower. We have not benchmarked it end-to-end on real edge hardware.
 
 ---
@@ -97,6 +99,19 @@ flowchart LR
 
 ---
 
+## The Demo That Wins: Closed-Loop Recovery (ABORT → EXECUTE)
+
+`POST /api/meta/closed-loop-flight-director` runs the full perception-to-control loop with a symbolic `tool_trace` a judge can audit step by step:
+
+1. `evaluate_vv_pipeline` — at a 5 s horizon the deterministic oracle returns **ABORT_NO_SAFE_MANEUVER** (no lateral burn can certify in time).
+2. `refine_optical_tracklet_sam31` — when probability dilution is detected (88 m miss masked by Pc = 3.8e-08), the SAM 3.1 seam shrinks the tracklet covariance and Pc rises to its true, actionable value.
+3. `check_eps_eclipse_budget` — Rule R6 verifies the burn survives eclipse battery depth-of-discharge limits.
+4. Lead-time recovery trials (90 s → 180 s → 360 s → 600 s) re-run the oracle until a Clohessy-Wiltshire-coupled along-track burn certifies: **EXECUTE**, escalated to Muse Wonder for the final natural-language safety proof.
+
+No step trusts the language model with physics: every Meta statement is grounded in the preceding deterministic certificate, and the whole loop works offline with honestly-labelled fallbacks.
+
+---
+
 ## NASA Data & Standards Used
 
 | Source | How Used | Implementation |
@@ -123,8 +138,8 @@ flowchart LR
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/DSeahYS/aegis-mesh.git
-cd aegis-mesh
+git clone https://github.com/DSeahYS/Aegis-Mesh-META-Global-AI.git
+cd Aegis-Mesh-META-Global-AI
 npm install
 ```
 
@@ -160,12 +175,15 @@ cd backend && pytest tests -m "not network" -v
 npm test
 ```
 
-### 5. Resource-Constrained Docker (Optional)
+### 5. One-Command Full-Stack Demo (Recommended for Judges)
 
 ```bash
 docker compose up --build
-# Runs backend with 0.5 CPU core / 256 MB RAM limits
+# Frontend: http://localhost:5173  •  Backend API/docs: http://localhost:8000/docs
+# Backend runs resource-constrained (0.5 CPU / 256 MB) to emulate edge SWaP limits.
 ```
+
+Set `META_API_KEY` in `.env` (see `.env.example`) to enable live Muse Spark/Wonder calls; without a key the flight-director returns a deterministic, honestly-labelled offline directive so the demo never dead-ends.
 
 ---
 
@@ -193,7 +211,7 @@ The fault injection presets (Starved Propellant, Weak Thruster, Strong Disturban
 The frontend provides 9 specialized views for constellation management, edge inference, and formal verification.
 
 ### 1. 3D Orbital Globe
-WebGL Earth visualization propagating 35,000+ tracked debris items and constellation satellites with real-time laser ISL cross-links.
+WebGL Earth visualization propagating 6,000+ real Celestrak TLE debris objects and constellation satellites with real-time laser ISL cross-links, cinematic camera work, sun glow and node halos.
 
 ![3D Orbital Globe](docs/images/hero-orbital-globe.png)
 
@@ -222,7 +240,7 @@ Constellation topology graph mapping 12 orbital nodes and 22 optical links along
 ![Mesh Network & ISL](docs/images/mesh-network.png)
 
 ### 6. Edge Retrieval Lab
-16-D state latent projection playground and InfoNCE contrastive similarity matrix for sub-millisecond maneuver retrieval.
+16-D state latent projection playground and contrastive similarity matrix for sub-millisecond maneuver retrieval (seeded prototype codebook — architecture demo, not a trained model).
 
 ![Edge Retrieval Lab](docs/images/edge-retrieval-lab.png)
 
@@ -249,7 +267,7 @@ FastAPI control plane providing interactive live TLE queries, CCSDS 508.0 Conjun
 aegis-mesh/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                  # FastAPI REST application (15+ endpoints)
+│   │   ├── main.py                  # FastAPI REST application (22 endpoints)
 │   │   ├── meta_agent.py              # Meta supervisory agent (Spark/Wonder, offline fallback)
 │   │   ├── clm_engine.py            # Edge Retrieval Engine (prototype, seeded codebook)
 │   │   ├── cara_engine.py           # Foster 2D B-plane Pc quadrature & oracles
@@ -261,11 +279,11 @@ aegis-mesh/
 │   │       ├── selftest.py          # Mathematical test oracles
 │   │       ├── cbf_filter.py        # CBF safety filter (closed-form projection)
 │   │       ├── hj_reachability.py   # HJ reachability (2-state double integrator)
-│   │       ├── physics_validator.py # Physics rules (R1, R2, R3)
+│   │       ├── physics_validator.py # Physics rules R1–R6 (incl. CW-coupled R5, EPS R6)
 │   │       ├── epg.py               # Symbolic physics rule graph (EPG-inspired)
 │   │       └── cdm_validator.py     # CDM structural validator
 │   ├── simulators/                  # Astrodynamics & hardware simulators
-│   ├── tests/                       # Pytest suite (62 math & physics tests)
+│   ├── tests/                       # Pytest suite (84 passing, 2 skipped offline)
 │   ├── requirements.txt
 │   └── Dockerfile
 ├── src/                             # React 18 + Three.js frontend

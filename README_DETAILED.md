@@ -20,7 +20,7 @@
 >
 > **We did not just write equations in a concept paper — every single mathematical formulation in AEGIS-MESH is implemented in code and validated by automated tests.**
 >
-> The AEGIS-MESH repository features an end-to-end, deterministic closed-loop avoidance engine implemented in Python (`backend/app/vv`) with **63 automated verification tests passing** (`pytest backend/tests -v`) and a Red-Team frontend stress test with **69/69 invariant checks passing** (`npm test`).
+> The AEGIS-MESH repository features an end-to-end, deterministic closed-loop avoidance engine implemented in Python (`backend/app/vv`) with **84 passing automated backend tests** (2 skipped, 1 network test deselected) (`pytest backend/tests -m "not network"`) and a Red-Team frontend stress test with **69/69 invariant checks passing** (`npm test`). For the Meta Global AI Developer Hackathon it adds an oracle-first Meta supervisory layer (`backend/app/meta_agent.py`): Muse Spark 1.3 (`fast`) / Muse Wonder 1.0 (`deep`) flight direction, a SAM 3.1 vision seam, and a closed-loop recovery director — all grounded in deterministic certificates computed *before* any model call, all with honestly-labelled offline fallbacks.
 >
 > **How to verify the live math in your browser:**
 >
@@ -31,6 +31,12 @@
 >    - **Interactive Autonomous Evasion Pipeline:** Step through the 5-stage pipeline with adjustable spacecraft mass, propellant reserves, and thrust. Observe live ERE candidate rankings, EPG deterministic rule pass/fail pruning, the live HTML5 `<canvas>` **Hamilton-Jacobi value function heatmap** (Backward Reachable Tube), and interactive Recharts graphs of the **Control Barrier Function safety envelope**.
 >    - **Interactive EPG Knowledge Graph:** View real-time semantic dependency graphs mapping satellite physical constraints to candidate maneuvers with live pass/prune edge highlights.
 >    - **CCSDS 508.0-B-1 & ISO 19389 CDM Validator:** Ingest and structurally validate Conjunction Data Messages against orbital covariance positive-definiteness and coordinate-frame rules.
+
+> ## Submission Status - Implemented vs. Concept (read this first)
+>
+> **Implemented & tested today:** Foster Pc engine (Rician/Monte-Carlo verified), SGP4 vs Vallado, CCSDS CDM parser/validator, R1-R6 physics rules (incl. Clohessy-Wiltshire-coupled along-track validation and EPS eclipse DoD), probability-dilution Stage-1 guard, true B-plane covariance rotation, 2-state HJ grid oracle (precomputed bilinear interpolation), IC-CBF slack filter, Meta flight-director + closed-loop ABORT-to-EXECUTE recovery with symbolic tool traces, Mission Briefing judge tour, one-command Docker demo.
+>
+> **Honestly labelled prototypes/concepts (not shipped capability):** the Edge Retrieval codebook is seeded/untrained (architecture demo); the SAM 3.1 provider measures a synthetic star-tracker frame until a live endpoint is wired; Product Quantization, Wasm migration, QKD links, ZES100 hardware and the full 4-state HCW HJI PDE are roadmap architecture discussed below - the UI visualizes them as concepts, and this guide marks them as such wherever they appear.
 
 ---
 
@@ -44,7 +50,7 @@
    - [The Paradigm Shift: Orbital Immune System](#the-paradigm-shift-orbital-immune-system)
 2. [Verification & Validation (V&V) Proof for Judges ("The Proof")](#-verification--validation-vv-proof-for-judges-the-proof)
    - [16 Mathematical & Physics Oracles (`selftest.py`)](#16-mathematical--physics-oracles-selftestpy)
-   - [63-Test Automated Pytest Suite](#63-test-automated-pytest-suite)
+   - [Automated Pytest Suite (84 passing)](#63-test-automated-pytest-suite)
    - [Red-Team Frontend UI Stress Suite (69 Checks)](#red-team-frontend-ui-stress-suite-69-checks)
    - [How Judges Can Test This in the Browser](#how-judges-can-test-this-in-the-browser)
 3. [System Architecture & The 5-Stage Closed Loop ("The How")](#-system-architecture--the-5-stage-closed-loop-the-how)
@@ -217,16 +223,17 @@ Every mathematical equation claimed in our architecture is evaluated against an 
 | `ERE-LATENCY` | Neural Engine | 500-call inference latency benchmark | PolarFire SWaP requirement $< 16\text{ ms}$ | $P_{99} < 16\text{ ms}$ ($0.025\text{ ms}$) | **PASS** ✅ |
 | `CDM-VALIDATOR` | Standards | CCSDS 508.0-B-1 inconsistency check | RTN relative displacement vs reported miss | Boolean error flag | **PASS** ✅ |
 
-### 63-Test Automated Pytest Suite
+### Automated Pytest Suite (84 passing)
 
 Run the full automated test suite locally:
 
 ```bash
-pytest backend/tests/ -v
+pytest backend/tests/ -m "not network" -v
 ```
 
+Representative excerpt (file/test names abbreviated). Current offline run: 84 passed, 2 skipped, 1 network test deselected.
 ```text
-collected 63 items
+collected 87 items
 
 backend/tests/e2e_live_celestrak_test.py::test_e2e_live_nasa_conjunction_and_report PASSED [  1%]
 backend/tests/test_api.py::test_health_endpoint PASSED                   [  3%]
@@ -248,7 +255,7 @@ backend/tests/test_spice_sim.py::* (11 tests)                            PASSED 
 backend/tests/test_vv.py::test_selftest_suite (16 tests)                 PASSED [ 92%]
 backend/tests/test_vv.py::* (5 pipeline/cdm/clm tests)                   PASSED [100%]
 
-======================= 63 passed, 2 warnings in 9.08s ========================
+======================= 84 passed, 2 skipped, 1 deselected in 18.67s ========================
 ```
 
 ### Red-Team Frontend UI Stress Suite (69 Checks)
@@ -357,8 +364,8 @@ graph TD
 
 ### Stage 2: ERE Rapid Latent Action Retrieval
 - **Latent State Embedding:** Real-time 6-DOF telemetry is normalized and encoded into a 16-dimensional continuous latent state vector.
-- **Product-Quantized Cache Search:** The vector is evaluated against a pre-calculated cache of 256 flight-verified astrodynamic escape routes compressed into a 75 MB footprint.
-- **Spatial Dot-Product Acceleration:** Native spatial arithmetic units on the onboard FPGA execute the dot-product search in **under 16 milliseconds**, ranking candidate escape routes by latent cosine similarity.
+- **Seeded Codebook Search (prototype):** The vector is evaluated against a deterministic seeded cache of 256 candidate escape routes. Product Quantization (below) is the roadmap compression scheme for a future trained codebook - it is not shipped today.
+- **Spatial Dot-Product Acceleration:** The dot-product search itself is benchmarked at sub-millisecond latency in the V&V suite (requirement: p99 < 16 ms for the retrieval step only - not the full Python pipeline), ranking candidates by latent cosine similarity.
 
 ### Stage 3: EPG Hybrid Neuro-Symbolic Physics Pruning
 - **Semantic Graph Construction:** Physical attributes (propellant mass, dry mass, thruster maximum thrust, specific impulse $I_{\text{sp}}$, orbital altitude) are represented as typed nodes in an EPG Knowledge Graph.
@@ -367,6 +374,8 @@ graph TD
 - **Rule R3 (Perigee Altitude Floor):** Rejects retrograde burns that drop post-burn perigee below $200\text{ km}$ ($6578.137\text{ km}$ geocentric), preventing inadvertent atmospheric re-entry.
 
 ### Stage 4: Hamilton-Jacobi Reachability Analysis
+
+> **Current status:** the shipped solver is a 2-state double-integrator HJ grid with precomputed bilinear interpolation, cross-checked against an analytic characteristic oracle. Candidate *displacements* fed into it are Clohessy-Wiltshire-coupled (Stage 3/R5). The full 4-state HCW Isaacs PDE below is the research target, not shipped code.
 - **Isaacs Differential Game:** Formulates collision avoidance as a zero-sum game between spacecraft control $\mathbf{u} \in \mathcal{U}$ and uncooperative debris disturbances $\mathbf{d} \in \mathcal{D}$ under Hill-Clohessy-Wiltshire (HCW) relative orbital dynamics.
 - **Backward Reachable Tube (BRT):** A semi-Lagrangian dynamic programming grid solver integrates the Isaacs Partial Differential Equation backward from TCA to verify that no combination of worst-case drag or tumbling perturbations can force an impact.
 
@@ -375,7 +384,7 @@ graph TD
 
   $$\ddot{h}(x, u) + (\alpha_1 + \alpha_2)\dot{h}(x) + \alpha_1 \alpha_2 h(x) \ge 0$$
 
-- **Quadratic Program (QP) Filtering:** Nominal thruster commands are minimally adjusted via a real-time QP filter to mathematically guarantee forward invariance of the safe set $\mathcal{C} = \{x \mid h(x) \ge 0\}$.
+- **Closed-Form IC-CBF Filtering:** Nominal thruster commands are minimally adjusted via a closed-form input-constrained projection with penalized slack (not a general QP solver) to enforce forward invariance of the safe set $\mathcal{C} = \{x \mid h(x) \ge 0\}$ within the simplified dynamics.
 
 ### Swarm Workload Migration & TraCSS CDM Broadcast
 - **Stateful Wasm Migration:** Before thrusters fire, active memory state is serialized into WebAssembly bytecode, compressed via CBOR with a SHA-256 integrity hash, and transmitted across a 10 Gbps QKD optical laser link to an adjacent node in $< 500\text{ ms}$.
@@ -392,7 +401,7 @@ Traditional Large Language Models (LLMs) generate responses autoregressively tok
 AEGIS-MESH solves this by **decoupling trajectory generation from trajectory selection**:
 - **Terrestrial Pre-Computation:** Millions of astrodynamically valid escape trajectories ($\Delta v$ vectors across along-track, cross-track, and radial directions) are pre-calculated on Earth using high-fidelity numerical integrators and compiled into a continuous vector embedding database.
 - **Edge Contrastive Retrieval:** A lightweight language model backbone (initialized as a prototype with a seeded codebook) projects incoming telemetry into the shared latent space.
-- **Direct Vector Mapping:** Maneuver selection collapses into a high-speed matrix dot-product similarity search. The satellite never generates an untested trajectory from scratch—it retrieves a pre-verified orbital escape maneuver in **under 16 milliseconds**.
+- **Direct Vector Mapping:** Maneuver selection collapses into a high-speed matrix dot-product similarity search. The satellite never generates an untested trajectory from scratch—it retrieves a candidate orbital escape maneuver in **under 16 milliseconds** (retrieval step benchmark; candidates still require EPG/HJ/CBF certification before any burn).
 
 ```
     Real-Time Telemetry                  Pre-Cached Maneuver Embeddings
@@ -406,11 +415,11 @@ AEGIS-MESH solves this by **decoupling trajectory generation from trajectory sel
                                                  └─ < 16ms on VectorBlox FPGA
 ```
 
-### 2. Product Quantization (PQ) 75MB Edge Cache
+### 2. Product Quantization (PQ) 75MB Edge Cache (Roadmap - not shipped)
 
 Storing millions of high-dimensional 32-bit floating-point (float32) trajectory embeddings would consume several gigabytes of VRAM—completely unviable on a 5-Watt CubeSat edge processor.
 
-AEGIS-MESH incorporates **Product Quantization (PQ)**:
+The roadmap design incorporates **Product Quantization (PQ)** (not shipped; today's codebook is a seeded 256-vector prototype):
 
 1. **Sub-Vector Decomposition:** Each high-dimensional action vector is split into $M=4$ lower-dimensional sub-vectors.
 2. **Clustering & Codebook:** Independent k-means centroids ($K=16$) are trained for each subspace, replacing continuous floats with 8-bit integer centroid indices.
@@ -434,7 +443,7 @@ To guarantee physical safety during the execution of an evasive burn:
 
   $$\ddot{h}(x, u) + (\alpha_1 + \alpha_2)\dot{h}(x) + \alpha_1 \alpha_2 h(x) \ge 0$$
 
-- **QP Safety Filter:** Nominal control inputs $u_{\text{nom}}$ from the ERE are passed through a real-time Quadratic Program (QP) projective filter. If nominal thrust violates the safety boundary, the filter minimally perturbs $u$ to enforce safety.
+- **Closed-Form Safety Filter:** Nominal control inputs $u_{\text{nom}}$ from the ERE are passed through a closed-form IC-CBF projective filter with penalized slack. If nominal thrust violates the safety boundary, the filter minimally perturbs $u$ to enforce safety within the simplified dynamics.
 - **Forward Invariance:** Mathematically guarantees that if the satellite begins outside the keep-out zone, the closed-loop trajectory will remain strictly outside the keep-out zone for all future time ($h(t) \ge 0 \quad \forall t$).
 
 ### 5. Hamilton-Jacobi Reachability via Isaacs PDE
@@ -444,7 +453,7 @@ Close encounters with uncooperative, tumbling debris fragments are subject to un
 AEGIS-MESH formulates avoidance as a **two-player zero-sum differential game**:
 - **Player 1 (Satellite):** Maximizes separation using thruster control $\mathbf{u} \in \mathcal{U}$.
 - **Player 2 (Debris Disturbances):** Minimizes separation under bounded adversarial perturbations $\mathbf{d} \in \mathcal{D}$.
-- **Isaacs PDE Dynamic Programming:** Solves the Hamilton-Jacobi-Isaacs Partial Differential Equation backward from TCA over a discretized Hill-Clohessy-Wiltshire (HCW) relative orbital frame.
+- **Isaacs PDE Dynamic Programming (target formulation):** The research formulation solves the Hamilton-Jacobi-Isaacs PDE backward from TCA over a discretized HCW frame; the shipped solver is the verified 2-state reduction described in Stage 4.
 - **Backward Reachable Tube (BRT):** Computes the exact set of initial states from which debris disturbances could force a collision. If the chosen maneuver places the state outside the BRT, avoidance is mathematically certified.
 - **HTML5 Canvas Heatmap:** Rendered live in the frontend dashboard, displaying the continuous value function contours.
 
@@ -452,7 +461,7 @@ AEGIS-MESH formulates avoidance as a **two-player zero-sum differential game**:
 
 Executing a high-thrust evasion burn introduces severe structural vibrations and localized electromagnetic interference (EMI) from thruster ignition coils. In small satellites, this physical stress risks corrupting volatile RAM and crashing ongoing mission payloads (such as Earth observation or broader space surveillance analysis).
 
-AEGIS-MESH implements a **pre-burn stateful workload migration**:
+AEGIS-MESH **proposes** a pre-burn stateful workload migration (concept UI only today):
 - **ISA-Agnostic WebAssembly:** Traditional container checkpointing (CRIU) requires identical CPU instruction sets on both nodes. In heterogeneous swarms (e.g., ARM-based nodes communicating with RISC-V PolarFire nodes), this fails. AEGIS-MESH compiles edge workloads into WebAssembly (Wasm) bytecode, enabling instant cross-architecture execution.
 - **Linear Memory Serialization:** Before thrusters ignite, the running Wasm instance snapshots its linear memory, compresses it via Concise Binary Object Representation (CBOR), and attaches a SHA-256 cryptographic digest.
 - **10 Gbps Optical Laser ISL:** The snapshot is beamed across a $10\text{ Gbps}$ inter-satellite optical link in $< 500\text{ ms}$.
@@ -605,7 +614,7 @@ AEGIS-MESH is built upon and verified against official aerospace datasets, stand
 | **NASA ORDEM 3.2 & 4.0** | NASA Orbital Debris Program Office | Baselines micro-debris flux ($0.1\text{ to }10\text{ cm}$) across altitudes and inclinations | Built into 3D particle simulation and threat generator |
 | **Space-Track.org Active Catalog** | 18th Space Defense Squadron | Ingests live Two-Line Element (TLE) sets for operational constellations | Live Celestrak REST ingestion + SGP4 propagation (`tle_client.py`) |
 | **NASA NAIF SPICE Toolkit** | NASA JPL / NAIF | High-precision ephemerides, solar radiation pressure, lunar/solar third-body gravity | Built into `backend/simulators/spice_orbit_sim.py` |
-| **NASA CARA Tools SDK** | NASA Goddard Space Flight Center | Foster (1992) & Hall (2019) 2D B-plane $P_c$ calculations & MDSS urgency tiers | Implemented in `cara_engine.py` & `cdm_traffic_pipeline.py` |
+| **NASA CARA method (reimplemented)** | NASA Goddard Space Flight Center | Foster (1992) & Hall (2019) 2D B-plane $P_c$ calculations & MDSS urgency tiers | Our own reimplementation in `cara_engine.py` & `cdm_traffic_pipeline.py` (not the NASA SDK) |
 | **TraCSS / CCSDS 508.0-B-1** | Office of Space Commerce / CCSDS | Ingests, validates, and emits ISO 19389 Conjunction Data Messages (CDMs) | Implemented in `cdm_validator.py` with 100% schema validation |
 | **SPARK 2022 Dataset** | Spacecraft Pose Estimation Benchmark | Synthetic and real orbital imagery for spacecraft 6DoF pose estimation | Benchmarked in `backend/simulators/star_tracker_vision.py` |
 
@@ -666,7 +675,7 @@ backend/simulators/
 ### 5. SPARK 2022 Star Tracker Edge Vision Simulator (`star_tracker_vision.py`)
 - **6DoF Pose Estimation:** Uses a lightweight ResNet architecture to estimate 3D relative position and quaternion attitude from orbital camera imagery.
 - **Optical Streak Centroiding:** Simulates sub-pixel debris streak detection and tracklet association.
-- **Latency Benchmarks:** Benchmarks camera shutter-to-state latency, verifying total vision pipeline execution in $< 12\text{ ms}$.
+- **Latency Benchmarks:** Provides a benchmark harness for camera shutter-to-state latency; the Meta SAM 3.1 seam currently measures a synthetic frame (see Submission Status).
 
 ---
 
@@ -688,7 +697,7 @@ Deploying artificial intelligence in Low Earth Orbit requires navigating extreme
 The AEGIS-MESH frontend is an authentic aerospace mission control operations suite built with **React 18**, **Three.js / React Three Fiber**, **Recharts**, and **Tailwind CSS v4** — engineered with a professional Zinc/Carbon monochrome chassis, ISO 3864 semantic instrumentation indicators, Swiss typography with tabular figures (`tnum`), and 60 FPS GPU-accelerated telemetry:
 
 <p align="center">
-  <img src="screenshot.png" alt="AEGIS-MESH 3D Orbital Swarm & Live Telemetry Mission Control" width="100%" />
+  <img src="docs/images/mission-dashboard.png" alt="AEGIS-MESH Mission Control Dashboard" width="100%" />
 </p>
 
 ```text
@@ -760,15 +769,55 @@ The AEGIS-MESH frontend is an authentic aerospace mission control operations sui
 
 ---
 
-11. **Mitchell, I. M., Bayen, A. M., & Tomlin, C. J.:** *A Time-Dependent Hamilton-Jacobi Formulation of Reachable Sets for Continuous Dynamic Games*, IEEE Transactions on Automatic Control, 50(7), 947-957, 2005. [IEEE Xplore](https://ieeexplore.ieee.org/document/1453531)
-12. **Bansal, S., Chen, M., Herbert, S., & Tomlin, C. J.:** *Hamilton-Jacobi Reachability: A Brief Overview and Recent Advances*, IEEE Conference on Decision and Control (CDC), 2017.
-13. **Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S.:** *Revisiting Spacetrack Report #3: Rev 2*, AIAA/AAS Astrodynamics Specialist Conference, AIAA 2006-6753, 2006.
-14. **Consultative Committee for Space Data Systems (CCSDS):** *Conjunction Data Message (CDM)*, Recommended Standard CCSDS 508.0-B-1, Blue Book / ISO 19389, 2013.
+
+---
+
+## Meta Supervisory Layer & Closed-Loop Recovery (Implemented)
+
+The Meta integration is supervisory, never inside the sub-16 ms retrieval loop (`backend/app/meta_agent.py`, proxied by FastAPI; the key is read only from `META_API_KEY` in the backend):
+
+- `POST /api/meta/flight-director` - oracle-first: `run_vv_pipeline` + EPG graph run first; `mode="fast"` routes to Muse Spark 1.3, `mode="deep"` (default) to Muse Wonder 1.0. Without a key it returns a deterministic `offline-fallback` directive (HTTP 200) so judges never hit a dead end.
+- `POST /api/agent/run` - strict alias: 503 when unconfigured, 502 on model failure (no silent fallback).
+- `POST /api/meta/vision-segment` - SAM 3.1 seam; today's provider (`sam31-offline-simulated`) measures centroid/angular uncertainty on a synthetic star-tracker frame and feeds a tightened covariance into the dilution loop.
+- `POST /api/meta/closed-loop-flight-director` - V&V -> dilution-triggered SAM covariance refinement -> R6 EPS eclipse check -> lead-time recovery trials (90/180/360/600 s) -> Wonder synthesis, returning an auditable symbolic `tool_trace`. Reference demo: 5 s horizon **ABORT_NO_SAFE_MANEUVER** -> 90 s **EXECUTE**.
+
+Framing note: running backward-HJI (Stage 4) before forward-HOCBF (Stage 5) is presented as a FaBRIC-style dual reachability-barrier shield - an architectural interpretation, not a claim of implementing the FaBRIC benchmark. Likewise the 4-state HCW HJI PDE (cf. arXiv:2605.20138-style formulations) remains future work; shipped candidate propagation is CW-coupled while the HJ oracle stays 2-state.
+
+## Edge Backend API Reference (Current)
+
+22 FastAPI routes (`backend/app/main.py`; interactive docs at `http://localhost:8000/docs`): inference (`/api/inference`), CDM parse/traffic/urgency, TLE query/propagate, conjunction assess/screen, health, benchmark results, V&V selftest/pipeline/validate-cdm, the four Meta routes above, EPG graph (GET/POST), and SPICE status/state/propagate. Full reference: `docs/api.md`.
+
+## Quickstart & One-Command Demo
+
+```bash
+docker compose up --build   # frontend http://localhost:5173 - API docs http://localhost:8000/docs
+```
+
+Local development: `npm install && npm run dev` plus `cd backend && pip install -r requirements.txt && uvicorn app.main:app --port 8000`. Verify with `cd backend && pytest tests -m "not network"` (84 passing), `npm test` (69/69), `npx tsc -b`, and `npm run lint`. Set `META_API_KEY` in `.env` for live Muse Spark/Wonder; offline fallbacks keep every demo path functional without it.
+
+## Future Roadmap & Hardware-in-the-Loop Testbeds
+
+Explicitly **not** shipped today: InfoNCE-trained retrieval weights (selftest target: top-5 physics recall), full 4-state HCW HJI solver / neural PDE surrogate with conformal error bounds, live SAM 3.1 endpoint wiring, Product Quantization codebook compression, real Wasm workload migration, QKD link hardware, ORDEM 4.0 flux tables, and Jetson/PolarFire hardware-in-the-loop profiling. Each is visualized in the UI as a concept and labelled as such.
+
+## Academic References & Works Cited
+
+1. **Foster, J. L., & Estes, H. S.:** *A Parametric Analysis of Orbital Debris Collision Probability and Maneuver Rate for Space Vehicles*, NASA/JSC-25898, 1992.
+2. **Hall, D. T.:** *Implementation Recommendations for 2D Pc Estimates in CARA Tools*, NASA GSFC, 2019.
+3. **Ames, A. D. et al.:** *Control Barrier Functions: Theory and Applications*, IEEE ECC, 2019.
+4. **Zhou, Y. et al.:** *On the Continuity of Rotation Representations in Neural Networks*, CVPR 2019 (6D rotation representation used by the vision roadmap).
+5. **NASA:** *Spacecraft Conjunction Assessment and Collision Avoidance Best Practices Handbook*, NASA-SP-20205011318 (incl. Rev. 2 appendices on Pc practice).
+6. **CCSDS:** *Conjunction Data Message*, CCSDS 508.0-B-1 / ISO 19389, 2013.
+7. **Meta AI:** Muse Spark / Muse Wonder Model API, SAM 3.1, DINOv3 and V-JEPA 2 - supervisory reasoning, segmentation seam and latent-world-model roadmap for AEGIS-MESH.
+
+8. **Mitchell, I. M., Bayen, A. M., & Tomlin, C. J.:** *A Time-Dependent Hamilton-Jacobi Formulation of Reachable Sets for Continuous Dynamic Games*, IEEE Transactions on Automatic Control, 50(7), 947-957, 2005. [IEEE Xplore](https://ieeexplore.ieee.org/document/1453531)
+9. **Bansal, S., Chen, M., Herbert, S., & Tomlin, C. J.:** *Hamilton-Jacobi Reachability: A Brief Overview and Recent Advances*, IEEE Conference on Decision and Control (CDC), 2017.
+10. **Vallado, D. A., Crawford, P., Hujsak, R., & Kelso, T. S.:** *Revisiting Spacetrack Report #3: Rev 2*, AIAA/AAS Astrodynamics Specialist Conference, AIAA 2006-6753, 2006.
+11. **Consultative Committee for Space Data Systems (CCSDS):** *Conjunction Data Message (CDM)*, Recommended Standard CCSDS 508.0-B-1, Blue Book / ISO 19389, 2013.
 
 ---
 
 <p align="center">
   <b>Project AEGIS-MESH</b> • <b>Autonomous Space Domain Awareness & Evasion</b><br>
   <i>Decentralizing Space Traffic Management for a Sustainable Orbital Future.</i><br>
-  <sub>React 18 + Three.js Frontend • FastAPI Edge Backend • PolarFire SWaP Emulation • 63 Automated Math & Physics Tests</sub>
+  <sub>React 18 + Three.js Frontend • FastAPI Edge Backend • PolarFire SWaP Emulation • 84 Passing Math, Physics & API Tests</sub>
 </p>

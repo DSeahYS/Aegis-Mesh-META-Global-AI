@@ -1067,6 +1067,18 @@ class SpiceOrbitSimulator:
             except Exception as e:
                 logger.warning("Auto kernel initialization completed with warnings: %s", str(e))
 
+    @staticmethod
+    def _ephemeris_velocity_km_s(position_fn, et: float, dt_s: float = 60.0) -> np.ndarray:
+        """Epoch-varying ephemeris velocity by central difference.
+
+        Replaces fixed ecliptic constants (e.g. [0, 29.78, 0] km/s), which are
+        only valid near one epoch/geometry, with the actual derivative of the
+        same analytical ephemeris used for position.
+        """
+        r_plus, _ = position_fn(et + dt_s)
+        r_minus, _ = position_fn(et - dt_s)
+        return (np.asarray(r_plus, dtype=float) - np.asarray(r_minus, dtype=float)) / (2.0 * dt_s)
+
     def get_state_vector(
         self,
         target_body: Union[str, int],
@@ -1116,8 +1128,9 @@ class SpiceOrbitSimulator:
         upper_target = target_str.upper()
         if upper_target in ["SUN", "10"]:
             r_sun, src = self.physics.get_sun_position(et)
-            # Estimate orbital velocity ~ 29.78 km/s orthogonal in ecliptic
-            v_est = np.array([0.0, 29.78, 0.0])
+            # Epoch-varying geocentric solar velocity (derivative of the same
+            # ephemeris), not a fixed +Y 29.78 km/s constant.
+            v_est = self._ephemeris_velocity_km_s(self.physics.get_sun_position, et)
             return StateVectorDTO(
                 epoch_iso=epoch_iso,
                 et_seconds=et,
@@ -1131,7 +1144,7 @@ class SpiceOrbitSimulator:
             )
         elif upper_target in ["MOON", "301"]:
             r_moon, src = self.physics.get_moon_position(et)
-            v_est = np.array([0.0, 1.022, 0.0])
+            v_est = self._ephemeris_velocity_km_s(self.physics.get_moon_position, et)
             return StateVectorDTO(
                 epoch_iso=epoch_iso,
                 et_seconds=et,

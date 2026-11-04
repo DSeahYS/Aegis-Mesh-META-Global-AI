@@ -13,6 +13,7 @@ from .vv import run_selftest, run_vv_pipeline, validate_cdm, build_epg_knowledge
 from .meta_agent import (
     MetaAgentError,
     MetaAgentNotConfigured,
+    run_closed_loop_flight_director,
     run_flight_director,
     run_neuro_symbolic_agent,
     run_vision_segment,
@@ -309,6 +310,23 @@ async def meta_flight_director(req: FlightDirectorRequest):
     """
     try:
         return run_flight_director(
+            cdm_summary=req.cdm_summary,
+            telemetry_params=req.telemetry_params or {},
+            mode=req.mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except MetaAgentNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except MetaAgentError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.post("/api/meta/closed-loop-flight-director")
+async def meta_closed_loop_flight_director(req: FlightDirectorRequest):
+    """Closed-loop director: dilution refinement + lead-time recovery + synthesis."""
+    try:
+        return run_closed_loop_flight_director(
             cdm_summary=req.cdm_summary,
             telemetry_params=req.telemetry_params or {},
             mode=req.mode,

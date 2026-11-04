@@ -222,7 +222,7 @@ export const CLMLab: React.FC = () => {
           </h2>
           <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">META SUPERVISORY</span>
         </div>
-        <p className="text-[11px] text-zinc-400 mb-3">Promptable concept segmentation for star-tracker frames. Without a configured Meta key the backend returns a deterministic offline stub.</p>
+        <p className="text-[11px] text-zinc-400 mb-3">Promptable concept segmentation for star-tracker frames. Without a configured Meta key the backend measures a synthetic star-tracker frame deterministically.</p>
         <button type="button" onClick={handleVisionSegment} disabled={visionBusy} className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white py-2 px-6 rounded transition-colors text-xs font-semibold">{visionBusy ? 'SEGMENTING...' : 'RUN SAM 3.1 SEGMENTATION'}</button>
         {visionResult && (
           <div className="mt-4 space-y-2">
@@ -232,6 +232,10 @@ export const CLMLab: React.FC = () => {
                 <span className="text-zinc-200">{s.prompt}</span>
                 <span className="text-zinc-500">{s.tracklet_id}</span>
                 <span className="text-cyan-300">bbox [{s.bbox_norm.join(', ')}]</span>
+                <span className="text-emerald-300">conf {s.confidence ?? '—'}</span>
+                {s.angular_uncertainty_mrad !== undefined && (
+                  <span className="text-zinc-400">±{s.angular_uncertainty_mrad} mrad</span>
+                )}
               </div>
             ))}
             <div className="text-[10px] text-zinc-500">{visionResult.note}</div>

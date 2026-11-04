@@ -202,39 +202,231 @@ def run_flight_director(
         }
 
 
-def run_vision_segment(prompts: list, frame_ref: Optional[str] = None) -> dict:
-    """SAM 3.1 segmentation seam with a deterministic offline stub.
+TOOL_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "evaluate_vv_pipeline",
+            "description": "Run the deterministic 5-stage V&V pipeline and return Pc, Pc-max dilution, HJ and CBF certificates.",
+            "parameters": {"type": "object", "properties": {"telemetry_params": {"type": "object"}}, "required": ["telemetry_params"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "refine_optical_tracklet_sam31",
+            "description": "Segment a star-tracker frame and return centroid, angular uncertainty and covariance shrink scale.",
+            "parameters": {"type": "object", "properties": {"prompts": {"type": "array", "items": {"type": "string"}}, "frame_ref": {"type": "string"}}, "required": ["prompts"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_eps_eclipse_budget",
+            "description": "Evaluate Rule R6 EPS eclipse depth-of-discharge margin from the selected candidate rule results.",
+            "parameters": {"type": "object", "properties": {"telemetry_params": {"type": "object"}}, "required": ["telemetry_params"]},
+        },
+    },
+]
 
-    The hosted SAM 3.1 endpoint is not wired to a live star-tracker frame
-    pipeline yet, so this returns stable placeholder segments (same input ->
-    same output) instead of pretending to segment. Wire the real provider
-    behind this function when a frame source exists.
+
+def _simulate_star_tracker_segment(prompt: str, frame_ref: Optional[str], index: int) -> dict:
+    """Segment a deterministic synthetic star-tracker frame.
+
+    This is a real threshold/centroid measurement on a generated 96x96 frame
+    (star field + bright RSO streak), used when no live SAM 3.1 endpoint or
+    camera frame is configured.  It is labelled as simulated everywhere.
     """
     import hashlib
 
-    segments = []
-    for i, prompt in enumerate(prompts):
-        seed = int(hashlib.sha256(str(prompt).encode()).hexdigest()[:8], 16)
-        x = 0.08 + 0.70 * ((seed % 997) / 997.0)
-        y = 0.08 + 0.70 * (((seed // 997) % 991) / 991.0)
-        w = 0.10 + 0.25 * (((seed // 7919) % 89) / 89.0)
-        h = 0.10 + 0.25 * (((seed // 104729) % 83) / 83.0)
-        segments.append(
-            {
-                "prompt": str(prompt),
-                "tracklet_id": f"RSO-STUB-{i:02d}",
-                "bbox_norm": [round(x, 3), round(y, 3), round(w, 3), round(h, 3)],
-                "area_frac": round(w * h, 4),
-                "confidence": None,
-            }
-        )
+    import numpy as np
+
+    seed_material = f"{frame_ref or 'demo-frame'}::{prompt}".encode()
+    seed = int(hashlib.sha256(seed_material).hexdigest()[:8], 16)
+    rng = np.random.default_rng(seed)
+    frame = rng.normal(18.0, 5.0, size=(96, 96))
+    # Sparse star field.
+    star_y, star_x = rng.integers(0, 96, size=28), rng.integers(0, 96, size=28)
+    frame[star_y, star_x] += rng.uniform(45.0, 90.0, size=28)
+    # Bright resident-space-object streak (the prompted tracklet).
+    y0 = int(rng.integers(18, 72))
+    x0 = int(rng.integers(8, 42))
+    length = int(rng.integers(24, 44))
+    slope = float(rng.uniform(-0.28, 0.28))
+    xs, ys = [], []
+    for k in range(length):
+        x = x0 + k
+        y = int(round(y0 + slope * k + rng.normal(0.0, 0.35)))
+        if 0 <= x < 96 and 0 <= y < 96:
+            frame[y, x] = 255.0
+            xs.append(x)
+            ys.append(y)
+    mask = frame >= 200.0
+    my, mx = np.nonzero(mask)
+    if len(mx) == 0:  # pragma: no cover - streak injection guarantees pixels
+        mx, my = np.array(xs), np.array(ys)
+    cx, cy = float(np.mean(mx)), float(np.mean(my))
+    w_px, h_px = int(np.max(mx) - np.min(mx) + 1), int(np.max(my) - np.min(my) + 1)
+    spread_px = float(np.sqrt(np.var(mx) + np.var(my)))
+    focal_px = 800.0
+    angular_uncertainty_mrad = round(max(0.05, spread_px / focal_px * 1000.0), 3)
+    snr = float((np.max(frame) - np.mean(frame)) / max(np.std(frame), 1e-6))
+    confidence = round(float(min(0.99, max(0.55, 0.72 + snr / 90.0))), 3)
     return {
-        "provider": "sam-3.1-offline-stub",
+        "prompt": str(prompt),
+        "tracklet_id": f"RSO-SIM-{index:02d}",
+        "bbox_norm": [
+            round(float(np.min(mx) / 96.0), 3),
+            round(float(np.min(my) / 96.0), 3),
+            round(float(w_px / 96.0), 3),
+            round(float(h_px / 96.0), 3),
+        ],
+        "centroid_px": [round(cx, 2), round(cy, 2)],
+        "mask_area_px": int(len(mx)),
+        "angular_uncertainty_mrad": angular_uncertainty_mrad,
+        "snr": round(snr, 2),
+        "area_frac": round(float(len(mx) / frame.size), 4),
+        "confidence": confidence,
+    }
+
+
+def run_vision_segment(prompts: list, frame_ref: Optional[str] = None) -> dict:
+    """SAM 3.1 segmentation seam (simulated-frame provider when offline).
+
+    When a live Meta SAM endpoint contract is configured this function is the
+    single provider seam to replace.  Offline it measures a synthetic
+    star-tracker frame (threshold + centroid + angular uncertainty) and
+    returns a covariance shrink scale for the closed-loop director; it never
+    fabricates a live SAM call.
+    """
+    segments = [
+        _simulate_star_tracker_segment(str(prompt), frame_ref, i)
+        for i, prompt in enumerate(prompts)
+    ]
+    mean_conf = (
+        sum(float(s["confidence"]) for s in segments) / len(segments) if segments else 0.0
+    )
+    sigma_scale = 0.1 if mean_conf >= 0.8 else 0.35
+    return {
+        "provider": "sam31-offline-simulated",
         "frame_ref": frame_ref,
+        "frame": {"width": 96, "height": 96, "source": "synthetic_star_tracker_frame"},
         "segments": segments,
+        "covariance_refinement": {
+            "sigma_scale": sigma_scale,
+            "mean_confidence": round(float(mean_conf), 3),
+            "mode": "simulated_sam31_covariance_shrink",
+        },
         "note": (
-            "Deterministic offline stub (no live SAM 3.1 call was made). "
-            "Replace the provider behind run_vision_segment with the Meta "
-            "SAM 3.1 endpoint when a star-tracker frame source is configured."
+            "Offline simulated SAM 3.1 seam: segments were measured on a "
+            "synthetic star-tracker frame, not a live SAM 3.1 call. Wire the "
+            "hosted SAM 3.1 endpoint behind run_vision_segment when available."
         ),
     }
+
+
+def run_closed_loop_flight_director(
+    cdm_summary: str,
+    telemetry_params: Optional[dict] = None,
+    mode: str = "fast",
+) -> dict:
+    """Closed-loop director: V&V -> (dilution ? SAM shrink) -> (abort ? longer TCA).
+
+    Executes deterministic symbolic tools locally and records a tool trace.
+    If the initial verdict is ABORT/UNVERIFIED, escalates lead time
+    (120 s -> 240 s -> 600 s) and re-proves with the oracle; the final
+    synthesis is escalated to Muse Wonder (deep) when a recovery succeeds.
+    """
+    params = dict(telemetry_params) if telemetry_params else {}
+    tool_trace: list[dict] = []
+
+    vv_result = run_vv_pipeline(params)
+    assessment = vv_result.get("assessment", {}) or {}
+    initial_status = (vv_result.get("verdict", {}) or {}).get("status")
+    tool_trace.append(
+        {
+            "tool": "evaluate_vv_pipeline",
+            "status": initial_status,
+            "pc_pre": assessment.get("pc_pre"),
+            "pc_max": assessment.get("pc_max"),
+            "probability_dilution_risk": assessment.get("probability_dilution_risk"),
+        }
+    )
+
+    vision_refinement = None
+    if assessment.get("probability_dilution_risk"):
+        vision = run_vision_segment(
+            ["resident space object streak", "uncataloged debris tracklet"],
+            frame_ref=str(params.get("frame_ref", "dilution-demo-frame")),
+        )
+        sigma_scale = float(vision["covariance_refinement"]["sigma_scale"])
+        refined_params = dict(params)
+        refined_params["sigma_xi_m"] = float(params.get("sigma_xi_m", 120.0)) * sigma_scale
+        refined_params["sigma_zeta_m"] = float(params.get("sigma_zeta_m", 60.0)) * sigma_scale
+        refined_vv = run_vv_pipeline(refined_params)
+        refined_assessment = refined_vv.get("assessment", {}) or {}
+        vision_refinement = {
+            "provider": vision["provider"],
+            "sigma_scale": sigma_scale,
+            "segments": vision["segments"],
+            "pc_before": assessment.get("pc_pre"),
+            "pc_after_refinement": refined_assessment.get("pc_pre"),
+        }
+        tool_trace.append(
+            {
+                "tool": "refine_optical_tracklet_sam31",
+                "provider": vision["provider"],
+                "sigma_scale": sigma_scale,
+                "pc_before": assessment.get("pc_pre"),
+                "pc_after_refinement": refined_assessment.get("pc_pre"),
+                "status": (refined_vv.get("verdict", {}) or {}).get("status"),
+            }
+        )
+        params, vv_result = refined_params, refined_vv
+        assessment = refined_assessment
+
+    recovered = False
+    if (vv_result.get("verdict", {}) or {}).get("status") in (
+        "ABORT_NO_SAFE_MANEUVER",
+        "UNVERIFIED",
+    ):
+        for candidate_tca in (90.0, 180.0, 360.0, 600.0):
+            if candidate_tca <= float(params.get("tca_s", 40.0)):
+                continue
+            trial_params = {**params, "tca_s": candidate_tca}
+            trial_vv = run_vv_pipeline(trial_params)
+            trial_status = (trial_vv.get("verdict", {}) or {}).get("status")
+            tool_trace.append(
+                {
+                    "tool": "evaluate_vv_pipeline",
+                    "trial_tca_s": candidate_tca,
+                    "status": trial_status,
+                    "pc_post": (trial_vv.get("assessment", {}) or {}).get("pc_post"),
+                }
+            )
+            if trial_status == "EXECUTE":
+                params, vv_result = trial_params, trial_vv
+                recovered = True
+                mode = "deep"
+                break
+
+    # EPS eclipse budget check from the final selected candidate's R6 result.
+    selected = vv_result.get("selected") or {}
+    r6 = next((r for r in (selected.get("rules") or []) if r.get("id") == "R6"), None)
+    tool_trace.append(
+        {
+            "tool": "check_eps_eclipse_budget",
+            "status": "PASSED" if (r6 and r6.get("passed")) else ("VIOLATED" if r6 else "UNAVAILABLE"),
+            "peak_dod_pct": (r6 or {}).get("value"),
+            "limit_pct": (r6 or {}).get("limit"),
+        }
+    )
+
+    result = run_flight_director(cdm_summary, params, mode=mode)
+    result["initial_verdict"] = initial_status
+    result["final_verdict"] = (result.get("vv_proof", {}).get("verdict", {}) or {}).get("status")
+    result["recovered_with_extended_lead_time"] = recovered
+    result["tool_trace"] = tool_trace
+    result["tool_schemas"] = TOOL_SCHEMAS
+    result["vision_refinement"] = vision_refinement
+    return result

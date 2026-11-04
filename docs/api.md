@@ -89,6 +89,9 @@ The AEGIS-MESH backend is built with FastAPI. When running locally (`cd backend 
   - **Description**: Oracle-first supervisory reasoning. Runs the V&V pipeline + EPG graph, then asks Muse Spark (`mode: "fast"`) or Muse Wonder (`mode: "deep"`, default) to synthesize a flight-director decision from the certificates. Without `META_API_KEY`, returns a deterministic offline directive (`source: "offline-fallback"`). Never called inside the <16 ms edge loop.
   - **Request Body**: `{ "cdm_summary": "...", "telemetry_params": {...}, "mode": "deep" }`
   - **Errors**: `400` unknown mode. Live-call failures degrade to the offline directive (HTTP 200).
+- **`POST /api/meta/closed-loop-flight-director`**
+  - **Description**: Closed-loop recovery director. Runs the V&V oracle, refines covariance via the SAM seam when probability dilution is detected, checks the R6 EPS eclipse budget, and on `ABORT`/`UNVERIFIED` escalates lead time (90 s → 600 s) re-proving each trial. Returns `tool_trace`, `initial_verdict`, `final_verdict`, and `recovered_with_extended_lead_time`.
+  - **Request Body**: same as `/api/meta/flight-director`.
 - **`POST /api/meta/vision-segment`**
   - **Description**: SAM 3.1 promptable segmentation seam for star-tracker frames. Currently serves a deterministic offline stub provider (`sam-3.1-offline-stub`); the live SAM 3.1 provider wires behind the same function.
   - **Request Body**: `{ "prompts": ["spacecraft body", "solar array"], "frame_ref": "frame-001" }`

@@ -1,12 +1,103 @@
 """EPG/KGDSL-style rule graph (in-process) physics validator.
 
 Assumptions:
-- Short horizon (TCA <= a few minutes << orbital period) => B-plane lateral motion is a double integrator.
 - Encounter frame: xi ≈ R (radial), zeta ≈ N (cross-track).
-- Along-track (T) delta_v does not change lateral miss within the short encounter horizon.
+- Impulsive maneuvers are propagated with the coupled Clohessy-Wiltshire (CW)
+  impulse response, so an along-track (T) impulse couples into radial (R)
+  displacement over the coast to TCA instead of being discarded.
+- Spacecraft survival is also gated by an EPS battery depth-of-discharge rule.
 """
 
 import numpy as np
+
+
+MU_EARTH_KM3_S2 = 398600.4418
+EARTH_RADIUS_KM = 6378.137
+
+
+def cw_bplane_displacement_m(
+    delta_v_mps: float,
+    direction_rtn: list[float],
+    coast_time_s: float,
+    altitude_km: float,
+) -> np.ndarray:
+    """Return CW-coupled B-plane displacement [xi, zeta] in metres.
+
+    The B-plane projection used by the V&V stack is (R, N).  For an impulse
+    (dv_R, dv_T, dv_N), CW relative motion gives
+
+        dr_R = sin(n t)/n dv_R + 2(1-cos(n t))/n dv_T
+        dr_N = sin(n t)/n dv_N
+
+    so prograde/retrograde burns (dv_T) move the radial/B-plane miss even
+    though they have no direct R/N component.
+    """
+    dv = float(delta_v_mps) if np.isfinite(delta_v_mps) else 0.0
+    direction = np.asarray(direction_rtn, dtype=float)
+    if direction.shape != (3,) or not np.all(np.isfinite(direction)):
+        direction = np.array([0.0, 1.0, 0.0])
+    dv_r, dv_t, dv_n = dv * direction
+    tau = max(0.0, float(coast_time_s) if np.isfinite(coast_time_s) else 0.0)
+    alt = float(altitude_km) if np.isfinite(altitude_km) else 550.0
+    r0_km = max(EARTH_RADIUS_KM + 1.0, EARTH_RADIUS_KM + alt)
+    n = float(np.sqrt(MU_EARTH_KM3_S2 / (r0_km ** 3)))
+    nt = n * tau
+    if abs(nt) > 1e-5:
+        dr_r = (np.sin(nt) / n) * dv_r + (2.0 * (1.0 - np.cos(nt)) / n) * dv_t
+        dr_n = (np.sin(nt) / n) * dv_n
+    else:
+        dr_r = dv_r * tau + n * dv_t * (tau ** 2)
+        dr_n = dv_n * tau
+    return np.array([float(dr_r), float(dr_n)], dtype=float)
+
+
+def evaluate_eps_dod_margin(params: dict, burn_time_s: float) -> dict:
+    """Fast analytical EPS eclipse-survival equivalent (Rule R6).
+
+    Worst case: the V&V/HJ-CBF compute spike and candidate burn support loads
+    occur during eclipse (zero solar generation).  Defaults mirror
+    backend/simulators/eps_power_sim.py (60 Wh pack, 85% initial SoC,
+    10 W solver spike, 40% flight DoD ceiling).
+    """
+    capacity_wh = float(params.get("battery_capacity_wh", 60.0))
+    initial_soc = float(params.get("initial_soc", params.get("battery_initial_soc", 0.85)))
+    dod_limit = float(params.get("eps_dod_limit_pct", params.get("flight_dod_limit_pct", 40.0)))
+    eclipse_s = float(params.get("eclipse_duration_s", 0.36 * 90.0 * 60.0))
+    baseline_w = float(params.get("eps_baseline_load_w", 6.5))
+    spike_w = float(params.get("solver_spike_w", 10.0))
+    spike_s = float(params.get("solver_spike_duration_s", 90.0))
+    burn_load_w = float(params.get("burn_support_load_w", 2.0))
+    burn_s = float(burn_time_s) if np.isfinite(burn_time_s) else eclipse_s
+
+    if capacity_wh <= 0.0 or not np.isfinite(capacity_wh):
+        return {
+            "passed": False,
+            "peak_dod_pct": 100.0,
+            "limit_pct": float(dod_limit),
+            "energy_used_wh": float("inf"),
+            "detail": "Invalid battery capacity for EPS depth-of-discharge evaluation",
+        }
+
+    initial_soc = min(1.0, max(0.0, initial_soc))
+    eclipse_used_wh = baseline_w * eclipse_s / 3600.0
+    spike_used_wh = spike_w * min(spike_s, eclipse_s) / 3600.0
+    burn_used_wh = burn_load_w * min(max(0.0, burn_s), eclipse_s) / 3600.0
+    energy_used_wh = eclipse_used_wh + spike_used_wh + burn_used_wh
+    initial_energy_wh = capacity_wh * initial_soc
+    final_energy_wh = max(0.0, initial_energy_wh - energy_used_wh)
+    peak_dod_pct = (1.0 - final_energy_wh / capacity_wh) * 100.0
+    return {
+        "passed": bool(peak_dod_pct <= dod_limit),
+        "peak_dod_pct": float(peak_dod_pct),
+        "limit_pct": float(dod_limit),
+        "energy_used_wh": float(energy_used_wh),
+        "eclipse_duration_s": float(eclipse_s),
+        "detail": (
+            f"Projected eclipse peak DoD {peak_dod_pct:.1f}% vs flight ceiling "
+            f"{dod_limit:.1f}% (baseline {baseline_w:.1f} W + solver spike "
+            f"{spike_w:.1f} W/{spike_s:.0f}s + burn support {burn_load_w:.1f} W)"
+        ),
+    }
 
 
 def compute_keepout_k(cov_2x2: np.ndarray, hard_body_radius_m: float, pc_threshold: float) -> float:
@@ -98,10 +189,11 @@ def evaluate_candidate(candidate: dict, params: dict, k_keepout: float, inv_cov_
     dir_rtn = [float(x) for x in candidate["direction_rtn"]]
     t_burn = dv / u_max if u_max > 0.0 else float("inf")
 
-    # Lateral burn: encounter frame xi ≈ R (dir_rtn[0]), zeta ≈ N (dir_rtn[2])
-    dv_lat = dv * np.array([dir_rtn[0], dir_rtn[2]], dtype=float)
+    # CW-coupled impulse propagation into the (R, N) B-plane.  Along-track
+    # burns now couple into radial displacement instead of producing dv_lat=0.
     coast_time = max(0.0, tca_s - 0.5 * t_burn)
-    p_tca = miss_vec + dv_lat * coast_time
+    delta_b = cw_bplane_displacement_m(dv, dir_rtn, coast_time, alt_km)
+    p_tca = miss_vec + delta_b
     norm_p_tca = float(np.linalg.norm(p_tca))
     norm_miss = float(np.linalg.norm(miss_vec))
 
@@ -174,7 +266,19 @@ def evaluate_candidate(candidate: dict, params: dict, k_keepout: float, inv_cov_
         "value": float(round(mahal_post, 4)),
         "limit": float(round(k_keepout, 4)),
         "unit": "sigma",
-        "detail": f"Post-maneuver Mahalanobis distance {mahal_post:.3f} sigma vs keep-out threshold {k_keepout:.3f} sigma (|p_tca|={norm_p_tca:.1f} m vs initial {norm_miss:.1f} m)",
+        "detail": f"Post-maneuver Mahalanobis distance {mahal_post:.3f} sigma vs keep-out threshold {k_keepout:.3f} sigma (|p_tca|={norm_p_tca:.1f} m vs initial {norm_miss:.1f} m; CW B-plane shift=({delta_b[0]:.1f}, {delta_b[1]:.1f}) m)",
+    })
+
+    # R6: EPS_DOD_MARGIN (spacecraft electrical survival during eclipse ops)
+    eps_eval = evaluate_eps_dod_margin(params, t_burn)
+    rules.append({
+        "id": "R6",
+        "name": "EPS_DOD_MARGIN",
+        "passed": bool(eps_eval["passed"]),
+        "value": float(round(eps_eval["peak_dod_pct"], 2)),
+        "limit": float(round(eps_eval["limit_pct"], 2)),
+        "unit": "% DoD",
+        "detail": eps_eval["detail"],
     })
 
     accepted = all(r["passed"] for r in rules)
@@ -182,6 +286,15 @@ def evaluate_candidate(candidate: dict, params: dict, k_keepout: float, inv_cov_
     evaluated_candidate = dict(candidate)
     evaluated_candidate["accepted"] = bool(accepted)
     evaluated_candidate["rules"] = rules
+    evaluated_candidate["bplane_displacement_m"] = [float(delta_b[0]), float(delta_b[1])]
+    disp_norm = float(np.linalg.norm(delta_b))
+    evaluated_candidate["bplane_direction"] = (
+        [float(delta_b[0] / disp_norm), float(delta_b[1] / disp_norm)]
+        if disp_norm > 1e-9
+        else [float(dir_rtn[0]), float(dir_rtn[2])]
+    )
+    evaluated_candidate["cw_coast_time_s"] = float(coast_time)
+    evaluated_candidate["eps_dod_pct"] = float(round(eps_eval["peak_dod_pct"], 2))
     return evaluated_candidate
 
 

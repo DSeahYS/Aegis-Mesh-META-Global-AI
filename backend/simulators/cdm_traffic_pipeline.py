@@ -102,6 +102,32 @@ def compute_mahalanobis_distance(
         return d_m, d_m ** 2, False
 
 
+def _bplane_basis_rtn(relative_velocity: Optional[Union[List[float], np.ndarray]]) -> Tuple[np.ndarray, np.ndarray]:
+    """Orthonormal B-plane axes (xi, zeta) expressed in RTN coordinates.
+
+    eta is the relative-velocity unit vector (B-plane normal).  With the
+    primary orbit normal approximated by N in RTN coordinates, xi = N x eta
+    and zeta = eta x xi.  For a head-on encounter (eta = -T) this reduces
+    exactly to xi=R, zeta=N; for non-head-on encounters it correctly mixes
+    the large in-track covariance into the encounter plane.
+    """
+    if relative_velocity is None:
+        return np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 1.0])
+    v = np.asarray(relative_velocity, dtype=float).flatten()
+    if v.shape[0] < 3 or not np.all(np.isfinite(v)) or np.linalg.norm(v) < 1e-9:
+        return np.array([1.0, 0.0, 0.0]), np.array([0.0, 0.0, 1.0])
+    eta = v / np.linalg.norm(v)
+    n_axis = np.array([0.0, 0.0, 1.0])
+    xi = np.cross(n_axis, eta)
+    if np.linalg.norm(xi) < 1e-8:
+        fallback = np.array([1.0, 0.0, 0.0]) if abs(eta[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        xi = np.cross(fallback, eta)
+    xi = xi / max(np.linalg.norm(xi), 1e-12)
+    zeta = np.cross(eta, xi)
+    zeta = zeta / max(np.linalg.norm(zeta), 1e-12)
+    return xi, zeta
+
+
 def calculate_baseline_urgency_metrics(
     tca: Union[str, datetime, float],
     relative_position: Union[List[float], np.ndarray],
@@ -196,14 +222,13 @@ def calculate_baseline_urgency_metrics(
     eigvals = np.linalg.eigvalsh(0.5 * (C_m2 + C_m2.T))
     cond_number = float(np.max(eigvals) / max(np.min(eigvals), 1e-12)) if np.min(eigvals) > 0 else float("inf")
 
-    # 5. Estimate 2D B-plane / cross-track Mahalanobis and Pc bounds
-    # In RTN frame, the encounter plane normal is roughly parallel to velocity (in-track T).
-    # The 2D encounter slice is spanned by Radial (R) and Cross-Track (N).
-    rel_pos_rn_m = np.array([r_val_m, n_val_m])
-    C_rn_m2 = np.array([
-        [C_m2[0, 0], C_m2[0, 2] if C_m2.shape[1] > 2 else 0.0],
-        [C_m2[2, 0] if C_m2.shape[0] > 2 else 0.0, C_m2[2, 2] if C_m2.shape[0] > 2 else C_m2[1, 1]],
-    ])
+    # 5. Project onto the true encounter B-plane (normal = relative velocity).
+    # Using (R, N) unconditionally drops/mixes CT_T incorrectly on non-head-on
+    # encounters; rotate the full RTN covariance with B = [xi, zeta].
+    xi_hat, zeta_hat = _bplane_basis_rtn(relative_velocity)
+    b_basis = np.column_stack([xi_hat, zeta_hat])
+    rel_pos_rn_m = b_basis.T @ rel_pos_m
+    C_rn_m2 = b_basis.T @ C_m2 @ b_basis
     mahal_2d, mahal_2d_sq, _ = compute_mahalanobis_distance(rel_pos_rn_m, C_rn_m2)
 
     # Foster 2D small-HBR Pc estimation (if reported_pc is missing)
@@ -287,6 +312,10 @@ def calculate_baseline_urgency_metrics(
         "mahalanobis_distance_3d": round(mahal_3d, 4),
         "mahalanobis_distance_3d_squared": round(mahal_3d_sq, 4),
         "mahalanobis_distance_2d": round(mahal_2d, 4),
+        "bplane_xi_m": round(float(rel_pos_rn_m[0]), 2),
+        "bplane_zeta_m": round(float(rel_pos_rn_m[1]), 2),
+        "bplane_covariance_m2": C_rn_m2.tolist(),
+        "bplane_basis_rtn": {"xi": xi_hat.tolist(), "zeta": zeta_hat.tolist()},
         "covariance_determinant": det_C,
         "covariance_condition_number": round(cond_number, 2),
         "covariance_positive_definite": is_pos_def,
@@ -617,45 +646,79 @@ class SpaceTrackClient:
         # Format: /basicspacedata/query/class/cdm_public[/predicate/value...]/orderby/.../limit/.../format/...
         path_parts = ["basicspacedata", "query", "class", "cdm_public"]
 
-        if norad_id:
-            # Query either object 1 or object 2 matching the NORAD ID
-            path_parts.extend(["NORAD_CAT_ID_1", str(norad_id)])
-
         if start_date and end_date:
             path_parts.extend(["TCA", f"{start_date}--{end_date}"])
         elif start_date:
             path_parts.extend(["TCA", f">{start_date}"])
 
-        if order_by:
-            path_parts.extend(["orderby", order_by])
+        # A NORAD id can appear as either conjunction object.  Space-Track
+        # predicates AND together, so query each field separately and merge
+        # (deduplicated) instead of only ever matching NORAD_CAT_ID_1.
+        norad_fields: List[Optional[str]] = (
+            ["NORAD_CAT_ID_1", "NORAD_CAT_ID_2"] if norad_id else [None]
+        )
+        merged_records: List[Any] = []
+        seen_record_keys = set()
+        any_query_success = False
 
-        if limit:
-            path_parts.extend(["limit", str(limit)])
+        for norad_field in norad_fields:
+            parts = list(path_parts)
+            if norad_field:
+                parts.extend([norad_field, str(norad_id)])
+            if order_by:
+                parts.extend(["orderby", order_by])
+            if limit:
+                parts.extend(["limit", str(limit)])
+            parts.extend(["format", format_type.lower()])
+            query_url = f"{self.base_url}/{'/'.join(parts)}"
 
-        path_parts.extend(["format", format_type.lower()])
-        query_url = f"{self.base_url}/{'/'.join(path_parts)}"
+            try:
+                logger.info("Executing Space-Track query: %s", query_url)
+                resp = self.session.get(query_url, timeout=self.timeout)
 
-        try:
-            logger.info("Executing Space-Track query: %s", query_url)
-            resp = self.session.get(query_url, timeout=self.timeout)
+                if resp.status_code != 200:
+                    logger.warning(
+                        "Space-Track query returned status %d for %s.",
+                        resp.status_code,
+                        norad_field or "unfiltered",
+                    )
+                    continue
 
-            if resp.status_code == 200:
                 if format_type.lower() == "json":
                     data = resp.json()
-                    if isinstance(data, list):
-                        logger.info("Retrieved %d CDMs from Space-Track.org.", len(data))
-                        return data if raw else self.batch_parse(data)
+                    records = data if isinstance(data, list) else []
                 elif format_type.lower() == "xml":
-                    parsed = self._parse_xml_cdm_string(resp.text)
-                    return parsed if raw else self.batch_parse(parsed)
+                    records = self._parse_xml_cdm_string(resp.text)
+                else:
+                    records = []
 
-            logger.warning(
-                "Space-Track query returned status %d. Falling back to local data.",
-                resp.status_code,
-            )
-        except Exception as exc:
-            logger.warning("Space-Track query exception (%s). Engaging local fallback.", exc)
+                any_query_success = True
+                for rec in records:
+                    if isinstance(rec, dict):
+                        key = str(
+                            rec.get("CDM_ID")
+                            or rec.get("MESSAGE_ID")
+                            or json.dumps(rec, sort_keys=True, default=str)
+                        )
+                    else:
+                        key = str(rec)
+                    if key not in seen_record_keys:
+                        seen_record_keys.add(key)
+                        merged_records.append(rec)
+                logger.info(
+                    "Retrieved %d CDMs from Space-Track.org (%s).",
+                    len(records),
+                    norad_field or "unfiltered",
+                )
+            except Exception as exc:
+                logger.warning("Space-Track query exception (%s).", exc)
 
+        if any_query_success:
+            if limit:
+                merged_records = merged_records[: int(limit)]
+            return merged_records if raw else self.batch_parse(merged_records)
+
+        logger.warning("All Space-Track queries failed. Falling back to local data.")
         fallback_records = self.load_fallback()
         return fallback_records if raw else self.batch_parse(fallback_records)
 
@@ -837,6 +900,7 @@ class SpaceTrackClient:
             combined_covariance=combined_cov_m2,
             current_time=creation_date,
             reported_pc=pc_float,
+            relative_velocity=[vr_m_s, vt_m_s, vn_m_s],
             position_units="m",
         )
 
@@ -861,10 +925,10 @@ class SpaceTrackClient:
             "covariance_rtn_km2": (cov2_rtn_m2 * 1e-6).tolist(),
         }
 
-        # B-plane projection coordinates
-        # Foster 1992 B-plane coordinates (Radial R maps to xi, Cross-Track N maps to zeta)
-        b_xi = r_m
-        b_zeta = n_m
+        # B-plane projection coordinates from the rotated encounter plane
+        # (falls back to R/N only when relative velocity is unavailable).
+        b_xi = float(urgency_metrics.get("bplane_xi_m", r_m))
+        b_zeta = float(urgency_metrics.get("bplane_zeta_m", n_m))
         b_mag = math.sqrt(b_xi ** 2 + b_zeta ** 2)
 
         return {

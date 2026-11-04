@@ -23,19 +23,27 @@ class CDMParser:
                 
             if line == 'META_START':
                 current_section = 'metadata'
+                current_object = None
                 continue
             elif line == 'META_STOP':
                 current_section = None
+                current_object = None
                 continue
-                
+
             if '=' in line:
                 k, v = [x.strip() for x in line.split('=', 1)]
-                
+
                 v_clean = re.sub(r'\s*\[.*?\]', '', v).strip()
-                
+
                 if k == 'OBJECT':
                     current_object = v_clean
-                
+
+                # Relative-data keywords are global (not object-scoped): once
+                # one appears we have left any object data block, so a stale
+                # OBJECT1 scope must never capture OBJECT2/global keys.
+                if k in ['TCA', 'MISS_DISTANCE', 'RELATIVE_SPEED', 'RELATIVE_POSITION_R', 'RELATIVE_POSITION_T', 'RELATIVE_POSITION_N', 'COLLISION_PROBABILITY']:
+                    current_object = None
+
                 if current_section == 'metadata':
                     if current_object:
                         if current_object not in data["metadata"]:

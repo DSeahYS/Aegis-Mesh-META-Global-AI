@@ -194,7 +194,7 @@ def test_vision_segment_deterministic_offline():
     first = meta_agent.run_vision_segment(["spacecraft body", "debris fragment"])
     second = meta_agent.run_vision_segment(["spacecraft body", "debris fragment"])
     assert first == second
-    assert first["provider"] == "sam-3.1-offline-stub"
+    assert first["provider"] == "sam31-offline-simulated"
     assert [s["prompt"] for s in first["segments"]] == ["spacecraft body", "debris fragment"]
     assert all(len(s["bbox_norm"]) == 4 for s in first["segments"])
 
@@ -233,6 +233,6 @@ def test_meta_vision_segment_endpoint():
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["provider"] == "sam-3.1-offline-stub"
+    assert data["provider"] == "sam31-offline-simulated"
     assert data["segments"][0]["prompt"] == "solar array"
     assert data["frame_ref"] == "frame-001"

@@ -89,7 +89,7 @@ const TOUR_STEPS: TourStep[] = [
     description:
       'Every AI-proposed maneuver is mathematically filtered through a 3-stage deterministic physics oracle before thruster commit—guaranteeing zero physical hallucinations.',
     highlights: [
-      'Symbolic Physics Rule Graph (R1 Tsiolkovsky Fuel, R2 Duty Cycle, R3 Vis-Viva Perigee, R5 Mahalanobis)',
+      'Symbolic Physics Rule Graph R1–R6 (fuel, duty cycle, perigee, CW risk reduction, EPS eclipse DoD)',
       'Hamilton-Jacobi-Isaacs (HJI) PDE backward reachable tube & High-Order Control Barrier Function (HOCBF)',
       '16 live analytical verification oracles (Foster 2D Gauss-Legendre vs Rician & 400k Monte Carlo)',
     ],

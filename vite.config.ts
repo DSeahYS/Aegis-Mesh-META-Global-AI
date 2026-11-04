@@ -12,7 +12,10 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        // Node env without @types/node: read via globalThis (Docker Compose sets this).
+        target:
+          (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env
+            ?.VITE_PROXY_TARGET ?? 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
       },

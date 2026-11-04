@@ -587,6 +587,10 @@ export interface VisionSegmentItem {
   prompt: string;
   tracklet_id: string;
   bbox_norm: [number, number, number, number];
+  centroid_px?: [number, number];
+  mask_area_px?: number;
+  angular_uncertainty_mrad?: number;
+  snr?: number;
   area_frac: number;
   confidence: number | null;
 }
@@ -594,8 +598,47 @@ export interface VisionSegmentItem {
 export interface VisionSegmentResponse {
   provider: string;
   frame_ref: string | null;
+  frame?: { width: number; height: number; source: string };
   segments: VisionSegmentItem[];
+  covariance_refinement?: {
+    sigma_scale: number;
+    mean_confidence: number;
+    mode: string;
+  };
   note: string;
+}
+
+export interface ToolTraceEntry {
+  tool: string;
+  status?: string;
+  trial_tca_s?: number;
+  [key: string]: unknown;
+}
+
+export interface ClosedLoopFlightDirectorResponse extends FlightDirectorResponse {
+  initial_verdict: string;
+  final_verdict: string;
+  recovered_with_extended_lead_time: boolean;
+  tool_trace: ToolTraceEntry[];
+  vision_refinement: unknown;
+}
+
+export async function runClosedLoopFlightDirector(
+  req: FlightDirectorRequest
+): Promise<ClosedLoopFlightDirectorResponse | null> {
+  return fetchWithTimeout<ClosedLoopFlightDirectorResponse>(
+    '/api/meta/closed-loop-flight-director',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cdm_summary: req.cdm_summary,
+        telemetry_params: req.telemetry_params ?? {},
+        mode: req.mode ?? 'fast',
+      }),
+    },
+    90000
+  );
 }
 
 export async function runVisionSegment(

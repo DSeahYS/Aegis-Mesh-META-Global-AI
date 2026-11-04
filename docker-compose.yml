@@ -29,3 +29,16 @@ services:
     mem_limit: 256m
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: aegis-mesh-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_PROXY_TARGET=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+

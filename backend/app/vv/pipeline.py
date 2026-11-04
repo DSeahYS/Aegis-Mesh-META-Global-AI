@@ -8,7 +8,7 @@ import numpy as np
 
 from ..cara_engine import CARAEngine
 from ..clm_engine import CLMEngine
-from .physics_validator import validate_candidates
+from .physics_validator import cw_bplane_displacement_m, validate_candidates
 from .hj_reachability import solve_hj_reachability
 from .cbf_filter import run_cbf_filter
 
@@ -32,7 +32,51 @@ DEFAULT_PIPELINE_PARAMS = {
     "d_max_mps2": 0.01,
     "pc_threshold": 1e-4,
     "top_k": 10,
+    "battery_capacity_wh": 60.0,
+    "initial_soc": 0.85,
+    "eps_dod_limit_pct": 40.0,
+    "eclipse_duration_s": 1944.0,
+    "eps_baseline_load_w": 6.5,
+    "solver_spike_w": 10.0,
+    "solver_spike_duration_s": 90.0,
+    "burn_support_load_w": 2.0,
 }
+
+
+def _pc_max_and_dilution(pc_pre: float, miss_vec: np.ndarray, cov_2x2: np.ndarray, hbr_m: float) -> tuple[float, bool, float]:
+    """Alfano/Akella Pc-max bound + probability-dilution flag (Stage 1).
+
+    Mirrors simulators/cdm_traffic_pipeline.calculate_baseline_urgency_metrics
+    but on the pipeline's native 2D B-plane covariance (xi, zeta).
+    """
+    try:
+        miss_m = float(np.linalg.norm(miss_vec))
+        det_2d = float(np.linalg.det(cov_2x2))
+        if miss_m > hbr_m and miss_m > 0.0:
+            pc_max_iso = (hbr_m ** 2) / (math.e * (miss_m ** 2))
+        else:
+            pc_max_iso = 1.0
+        pc_max = float(min(1.0, max(0.0, pc_max_iso)))
+        # Scaled bound needs det; keep the larger (conservative) of the two.
+        if det_2d > 1e-6 and miss_m > 0.0:
+            # d_M^2 lower bound via largest eigenvalue (conservative).
+            eig_max = float(np.max(np.linalg.eigvalsh(cov_2x2)))
+            if eig_max > 0.0:
+                dm2_lb = (miss_m ** 2) / eig_max
+                if dm2_lb > 0.0:
+                    pc_max_scaled = (hbr_m ** 2) / (math.e * dm2_lb * math.sqrt(det_2d))
+                    pc_max = float(min(1.0, max(pc_max, pc_max_scaled)))
+        inv_cov = np.linalg.pinv(cov_2x2)
+        mahal_val = float(miss_vec @ inv_cov @ miss_vec)
+        mahal = float(math.sqrt(max(0.0, mahal_val))) if math.isfinite(mahal_val) else 0.0
+        dilution = bool(
+            (miss_m < 500.0 or mahal <= 3.5)
+            and (pc_pre < 1e-7)
+            and (pc_max > 1e-4)
+        )
+        return pc_max, dilution, mahal
+    except Exception:
+        return 0.0, False, 0.0
 
 
 def sanitize_json(obj):
@@ -96,10 +140,11 @@ def run_vv_pipeline(user_params: dict | None = None, cara_engine: CARAEngine | N
         [rho * sigma_xi * sigma_zeta, sigma_zeta ** 2]
     ], dtype=float)
 
-    # Stage 1: Assess initial risk
+    # Stage 1: Assess initial risk (Foster Pc + Alfano Pc-max dilution guard)
     t0 = time.perf_counter()
     pc_pre = float(cara.compute_probability(miss_vec, cov_2x2, hbr_m))
-    triggered = bool(pc_pre >= pc_threshold)
+    pc_max, dilution_risk, mahalanobis_pre = _pc_max_and_dilution(pc_pre, miss_vec, cov_2x2, hbr_m)
+    triggered = bool(pc_pre >= pc_threshold or dilution_risk)
     t_assess = (time.perf_counter() - t0) * 1000.0
 
     # Stage 2: CLM candidate generation
@@ -124,11 +169,18 @@ def run_vv_pipeline(user_params: dict | None = None, cara_engine: CARAEngine | N
     if selected_candidate is not None:
         dv = float(selected_candidate["delta_v_mps"])
         dir_rtn = selected_candidate["direction_rtn"]
-        dv_lat = dv * np.array([float(dir_rtn[0]), float(dir_rtn[2])], dtype=float)
         t_burn = dv / u_max if u_max > 0.0 else 0.0
-        p_tca = miss_vec + dv_lat * max(0.0, tca_s - 0.5 * t_burn)
+        coast_time = max(0.0, tca_s - 0.5 * t_burn)
+        delta_b = cw_bplane_displacement_m(
+            dv,
+            [float(dir_rtn[0]), float(dir_rtn[1]), float(dir_rtn[2])],
+            coast_time,
+            float(params["altitude_km"]),
+        )
+        p_tca = miss_vec + delta_b
         post_miss_norm = float(np.linalg.norm(p_tca))
-        dv_lat_norm = float(np.linalg.norm(dv_lat))
+        # Effective B-plane speed for the 1D HJ radial oracle.
+        dv_lat_norm = float(np.linalg.norm(delta_b) / coast_time) if coast_time > 0.0 else 0.0
     else:
         p_tca = miss_vec.copy()
         post_miss_norm = miss_m
@@ -177,6 +229,8 @@ def run_vv_pipeline(user_params: dict | None = None, cara_engine: CARAEngine | N
         reasons.append(f"All {evaluated_count} candidate maneuvers were rejected by physics validation rules.")
     elif maneuver_certified and forward_invariant:
         status = "EXECUTE"
+        if dilution_risk:
+            reasons.append(f"Probability dilution guard triggered action (reported Pc {pc_pre:.2e} but Pc_max {pc_max:.2e}); SAM/optical covariance refinement recommended before final commit.")
         reasons.append(f"Selected maneuver {selected_candidate['label']} certified by HJ reachability (guaranteed miss {hj_results['maneuver_guaranteed_miss_m']:.1f} m > 0).")
         reasons.append(f"CBF safety envelope verified forward invariant (min h after entry = {cbf_results['min_h_after_entry']:.4f} >= 0).")
     else:
@@ -204,6 +258,10 @@ def run_vv_pipeline(user_params: dict | None = None, cara_engine: CARAEngine | N
         "assessment": {
             "pc_pre": float(pc_pre),
             "pc_post": float(pc_post),
+            "pc_max": float(pc_max),
+            "probability_dilution_risk": bool(dilution_risk),
+            "mahalanobis_pre": float(mahalanobis_pre),
+            "requires_optical_refinement": bool(dilution_risk),
             "threshold": float(pc_threshold),
             "triggered": bool(triggered),
             "method": "Foster 1992 2D B-plane (numerical polar quadrature)",

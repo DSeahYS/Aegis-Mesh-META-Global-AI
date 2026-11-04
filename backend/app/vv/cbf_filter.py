@@ -39,7 +39,14 @@ def run_cbf_simulation(
     if selected_candidate is not None:
         dv = float(selected_candidate["delta_v_mps"])
         dir_rtn = selected_candidate["direction_rtn"]
-        dir_lat = np.array([float(dir_rtn[0]), float(dir_rtn[2])], dtype=float)
+        # Prefer the CW-coupled B-plane direction from physics validation so
+        # along-track burns steer the CBF simulation along their true
+        # radial/cross-track displacement instead of a zero lateral vector.
+        bplane_dir = selected_candidate.get("bplane_direction")
+        if bplane_dir is not None and len(bplane_dir) == 2:
+            dir_lat = np.array([float(bplane_dir[0]), float(bplane_dir[1])], dtype=float)
+        else:
+            dir_lat = np.array([float(dir_rtn[0]), float(dir_rtn[2])], dtype=float)
         norm_dir_lat = np.linalg.norm(dir_lat)
         if norm_dir_lat > 1e-8:
             dir_lat = dir_lat / norm_dir_lat

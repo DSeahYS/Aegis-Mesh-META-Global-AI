@@ -13,7 +13,13 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from ..clm_engine import CLMEngine
-from .physics_validator import compute_keepout_k, evaluate_candidate, validate_candidates
+from .physics_validator import (
+    compute_keepout_k,
+    evaluate_candidate,
+    evaluate_eps_dod_margin,
+    evaluate_orbit_perigee,
+    validate_candidates,
+)
 from .pipeline import DEFAULT_PIPELINE_PARAMS, sanitize_json
 
 
@@ -34,6 +40,7 @@ EPG_SCHEMA: Dict[str, Any] = {
             "Perigee_Safety",
             "Orbital_Safety_Domain",
             "Action_Latent_Space",
+            "EPS_Battery_DoD",
         ],
         "rule": [
             "Rule_R1_Tsiolkovsky",
@@ -41,6 +48,7 @@ EPG_SCHEMA: Dict[str, Any] = {
             "Rule_R3_Perigee_Floor",
             "Rule_R4_Thrust_Vector",
             "Rule_R5_Risk_Reduction",
+            "Rule_R6_EPS_DoD",
         ],
         "instance": [
             "Satellite_Aegis_1",
@@ -204,6 +212,11 @@ def build_epg_knowledge_graph(
     thrust_passed = bool(t_burn <= t_allowable)
     thrust_margin_s = t_allowable - t_burn if math.isfinite(t_burn) else -999.0
 
+    # 3. EPS battery depth-of-discharge evaluation (Rule R6)
+    eps_eval = evaluate_eps_dod_margin(merged_params, t_burn)
+    eps_passed = bool(eps_eval["passed"])
+    eps_dod_pct = float(eps_eval["peak_dod_pct"])
+
     # Overall verdict for candidate
     is_accepted = bool(evaluated_cand.get("accepted", False))
     verdict = "ACCEPTED" if is_accepted else "PRUNED"
@@ -265,7 +278,7 @@ def build_epg_knowledge_graph(
             "description": "Orbital specific energy floor guaranteeing evasive retrograde burns do not cause atmospheric re-entry.",
             "properties": {
                 "min_perigee_km": round(min_perigee, 1),
-                "evaluation_status": "PASSED" if rule_dict.get("R3", {}).get("passed", True) else "VIOLATED",
+                "evaluation_status": "PASSED" if rule_dict.get("R3", {}).get("passed", False) else "VIOLATED",
                 "formula": "r_p = a * (1 - e) >= R_Earth + min_perigee_km",
             },
         },
@@ -278,6 +291,18 @@ def build_epg_knowledge_graph(
                 "pc_threshold": pc_threshold,
                 "k_keepout_sigma": round(k_keepout, 3),
                 "hard_body_radius_m": round(hbr_m, 1),
+            },
+        },
+        {
+            "id": "EPS_Battery_DoD",
+            "label": "EPS Battery Depth-of-Discharge Constraint",
+            "type": "concept",
+            "description": "CubeSat electrical power survival: projected eclipse battery depth-of-discharge including V&V solver spike and burn support loads.",
+            "properties": {
+                "peak_dod_pct": round(eps_dod_pct, 2),
+                "flight_dod_limit_pct": round(float(eps_eval["limit_pct"]), 2),
+                "evaluation_status": "PASSED" if eps_passed else "VIOLATED",
+                "formula": "DoD_peak = 1 - (E0 - E_eclipse_load)/E_capacity <= 40%",
             },
         },
         {
@@ -331,11 +356,11 @@ def build_epg_knowledge_graph(
             "properties": rule_dict.get("R3", {
                 "id": "R3",
                 "name": "MIN_PERIGEE",
-                "passed": True,
-                "value": 548.0,
+                "passed": bool(evaluate_orbit_perigee(float(merged_params["altitude_km"]), cand_dv, cand_dir) >= min_perigee),
+                "value": round(evaluate_orbit_perigee(float(merged_params["altitude_km"]), cand_dv, cand_dir), 2),
                 "limit": round(min_perigee, 2),
                 "unit": "km",
-                "detail": "Post-burn perigee altitude above minimum safe threshold",
+                "detail": "Post-burn perigee evaluated directly (validator rule unavailable)",
             }),
         },
         {
@@ -346,11 +371,11 @@ def build_epg_knowledge_graph(
             "properties": rule_dict.get("R4", {
                 "id": "R4",
                 "name": "THRUST_VECTOR_VALID",
-                "passed": True,
-                "value": 1.0,
+                "passed": bool(abs(float(np.linalg.norm(cand_dir)) - 1.0) < 1e-6),
+                "value": round(float(np.linalg.norm(cand_dir)), 6),
                 "limit": 1.0,
                 "unit": "norm",
-                "detail": "Thrust direction vector properly normalized",
+                "detail": "Thrust direction norm evaluated directly (validator rule unavailable)",
             }),
         },
         {
@@ -361,11 +386,26 @@ def build_epg_knowledge_graph(
             "properties": rule_dict.get("R5", {
                 "id": "R5",
                 "name": "RISK_REDUCTION",
-                "passed": True,
-                "value": round(k_keepout + 1.5, 3),
+                "passed": False,
+                "value": 0.0,
                 "limit": round(k_keepout, 3),
                 "unit": "sigma",
-                "detail": "Post-maneuver distance safely outside keep-out ellipsoid",
+                "detail": "R5 evaluation unavailable; fail closed (candidate not certified)",
+            }),
+        },
+        {
+            "id": "Rule_R6_EPS_DoD",
+            "label": "R6: EPS Eclipse DoD Margin",
+            "type": "rule",
+            "description": "Ensures projected eclipse battery depth-of-discharge (baseline + solver spike + burn support) stays below the flight ceiling.",
+            "properties": rule_dict.get("R6", {
+                "id": "R6",
+                "name": "EPS_DOD_MARGIN",
+                "passed": eps_passed,
+                "value": round(eps_dod_pct, 2),
+                "limit": round(float(eps_eval["limit_pct"]), 2),
+                "unit": "% DoD",
+                "detail": eps_eval["detail"],
             }),
         },
 
@@ -467,19 +507,35 @@ def build_epg_knowledge_graph(
             "source": "CLM_Vector",
             "target": "Rule_R3_Perigee_Floor",
             "relation": "tested_by",
-            "properties": {"passed": rule_dict.get("R3", {}).get("passed", True)},
+            "properties": {"passed": rule_dict.get("R3", {}).get("passed", False)},
         },
         {
             "source": "CLM_Vector",
             "target": "Rule_R4_Thrust_Vector",
             "relation": "tested_by",
-            "properties": {"passed": rule_dict.get("R4", {}).get("passed", True)},
+            "properties": {"passed": rule_dict.get("R4", {}).get("passed", False)},
         },
         {
             "source": "CLM_Vector",
             "target": "Rule_R5_Risk_Reduction",
             "relation": "tested_by",
-            "properties": {"passed": rule_dict.get("R5", {}).get("passed", True)},
+            "properties": {"passed": rule_dict.get("R5", {}).get("passed", False)},
+        },
+        {
+            "source": "CLM_Vector",
+            "target": "Rule_R6_EPS_DoD",
+            "relation": "tested_by",
+            "properties": {"passed": eps_passed},
+        },
+        {
+            "source": "CLM_Vector",
+            "target": "EPS_Battery_DoD",
+            "relation": "evaluates_against",
+            "properties": {
+                "status": "PASSED" if eps_passed else "VIOLATED",
+                "metric": "eclipse_depth_of_discharge",
+                "value": f"{eps_dod_pct:.1f}% / {float(eps_eval['limit_pct']):.1f}% ceiling",
+            },
         },
 
         # Ontological parameterization of rules by physical constraints
@@ -584,6 +640,13 @@ def build_epg_knowledge_graph(
             "max_allowable_burn_time_s": round(t_allowable, 2),
             "margin_s": round(thrust_margin_s, 2),
             "status": "PASSED" if thrust_passed else "VIOLATED",
+        },
+        "eps_evaluation": {
+            "node_id": "EPS_Battery_DoD",
+            "rule_id": "Rule_R6_EPS_DoD",
+            "peak_dod_pct": round(eps_dod_pct, 2),
+            "limit_pct": round(float(eps_eval["limit_pct"]), 2),
+            "status": "PASSED" if eps_passed else "VIOLATED",
         },
         "rule_results": evaluated_cand.get("rules", []),
         "verdict": verdict,

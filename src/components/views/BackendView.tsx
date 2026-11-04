@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Send,
   Clock,
+  Sparkles,
 } from 'lucide-react';
 import {
   getHealth,
@@ -20,6 +21,10 @@ import {
   assessConjunction,
   getBenchmarkResults,
   parseCDM,
+  runFlightDirector,
+  runClosedLoopFlightDirector,
+  type FlightDirectorResponse,
+  type ClosedLoopFlightDirectorResponse,
   type HealthStatus,
   type InferenceResult,
   type TLEData,
@@ -87,6 +92,9 @@ export const BackendView: FC = () => {
   const [benchmark, setBenchmark] = useState<BenchmarkReport | null>(null);
   const [cdmText, setCdmText] = useState(SAMPLE_CDM);
   const [cdmData, setCdmData] = useState<CDMData | null>(null);
+  const [directorSummary, setDirectorSummary] = useState('CDM-2026-DILUTION-005: CYGNUS NG-22 vs UNCATALOGED OPTICAL TRACKLET (88 m miss, diluted Pc)');
+  const [flightResult, setFlightResult] = useState<FlightDirectorResponse | null>(null);
+  const [directorResult, setDirectorResult] = useState<ClosedLoopFlightDirectorResponse | null>(null);
   const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const logIdRef = useRef(0);
@@ -171,6 +179,28 @@ export const BackendView: FC = () => {
     const res = await parseCDM(cdmText);
     pushLog('POST', '/api/cdm/parse', res ? 200 : 'ERR', performance.now() - t0);
     setCdmData(res);
+    setBusy(null);
+  };
+
+  const handleFlightDirector = async () => {
+    setBusy('flight-director');
+    const t0 = performance.now();
+    const res = await runFlightDirector({ cdm_summary: directorSummary, telemetry_params: {}, mode: 'deep' });
+    pushLog('POST', '/api/meta/flight-director', res ? 200 : 'ERR', performance.now() - t0);
+    setFlightResult(res);
+    setBusy(null);
+  };
+
+  const handleClosedLoop = async () => {
+    setBusy('closed-loop');
+    const t0 = performance.now();
+    const res = await runClosedLoopFlightDirector({
+      cdm_summary: directorSummary,
+      telemetry_params: { tca_s: 5.0 },
+      mode: 'fast',
+    });
+    pushLog('POST', '/api/meta/closed-loop-flight-director', res ? 200 : 'ERR', performance.now() - t0);
+    setDirectorResult(res);
     setBusy(null);
   };
 
@@ -312,6 +342,70 @@ export const BackendView: FC = () => {
                     <div className="text-zinc-500 truncate">{t.line2}</div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Meta Flight Director Panel */}
+          <div className="bg-space-800 border border-cyan-500/40 rounded-sm p-5 font-mono">
+            <div className="flex items-center justify-between mb-4 border-b border-space-600 pb-3">
+              <h2 className="text-sm font-bold flex items-center gap-2 text-zinc-100">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                META FLIGHT DIRECTOR (/api/meta/*)
+              </h2>
+              <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">
+                ORACLE-FIRST · OFFLINE-CAPABLE
+              </span>
+            </div>
+            <textarea
+              value={directorSummary}
+              onChange={(e) => setDirectorSummary(e.target.value)}
+              placeholder="CDM event summary..."
+              className="w-full h-14 bg-zinc-900 border border-space-700 rounded p-2 text-[10px] text-zinc-300 mb-3 focus:outline-none focus:border-cyan-500"
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleFlightDirector}
+                disabled={busy !== null || !isConnected}
+                className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white py-2 rounded transition-colors text-xs font-semibold"
+              >
+                {busy === 'flight-director' ? 'CONSULTING…' : 'FLIGHT DIRECTOR (WONDER)'}
+              </button>
+              <button
+                type="button"
+                onClick={handleClosedLoop}
+                disabled={busy !== null || !isConnected}
+                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white py-2 rounded transition-colors text-xs font-semibold"
+              >
+                {busy === 'closed-loop' ? 'RECOVERING…' : 'CLOSED-LOOP RECOVERY (TCA 5s)'}
+              </button>
+            </div>
+            {flightResult && (
+              <div className="mt-4 p-3 bg-zinc-900 border border-cyan-900 rounded text-[11px] space-y-1">
+                <div className="text-cyan-400 font-bold">DIRECTIVE · {flightResult.model} · SOURCE {flightResult.source}</div>
+                <div className="text-zinc-200">{flightResult.agent_directive}</div>
+                <div className="text-zinc-400">V&V verdict: <span className="text-cyber-green">{flightResult.vv_proof.verdict.status}</span></div>
+              </div>
+            )}
+            {directorResult && (
+              <div className="mt-4 p-3 bg-zinc-900 border border-emerald-900 rounded text-[11px] space-y-2">
+                <div className="flex flex-wrap gap-2 text-[10px]">
+                  <span className="px-2 py-0.5 rounded bg-zinc-950 border border-zinc-700 text-zinc-300">INITIAL {directorResult.initial_verdict}</span>
+                  <span className="px-2 py-0.5 rounded bg-zinc-950 border border-emerald-700 text-emerald-300">FINAL {directorResult.final_verdict}</span>
+                  {directorResult.recovered_with_extended_lead_time && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500 text-emerald-300">RECOVERED VIA EXTENDED LEAD TIME</span>
+                  )}
+                </div>
+                <div className="text-zinc-200">{directorResult.agent_directive}</div>
+                <div className="space-y-1">
+                  {directorResult.tool_trace.map((t, i) => (
+                    <div key={i} className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-[10px]">
+                      <span className="text-cyan-300">{t.tool}</span>
+                      <span className="text-zinc-400">{t.trial_tca_s ? `TCA ${t.trial_tca_s}s · ` : ''}{String(t.status ?? '')}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

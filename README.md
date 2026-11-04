@@ -47,8 +47,11 @@ Space debris is the #1 long-term threat to sustainable LEO operations. Ground-ba
 | **Optical debris detection** | 🔶 Concept only | Star tracker detection of cm-class debris is an unresolved feasibility challenge |
 | **Wasm workload migration** | 🔶 Concept UI | Animated simulation, no real Wasm state transfer |
 | **QKD inter-satellite links** | 🔶 Concept UI | Hardcoded values, no real quantum key exchange |
-| **Meta flight-director (Spark/Wonder)** | ✅ Implemented (offline-capable) | `POST /api/meta/flight-director`; oracle-first, deterministic offline directive without a key |
-| **SAM 3.1 vision seam** | ⚠️ Offline stub | `POST /api/meta/vision-segment`; deterministic placeholders until live SAM wiring |
+| **Meta flight-director (Spark/Wonder)** | ✅ Implemented (offline-capable) | `POST /api/meta/flight-director` + closed-loop recovery (`/api/meta/closed-loop-flight-director`); oracle-first, deterministic offline directive without a key |
+| **SAM 3.1 vision seam** | ⚠️ Simulated-frame provider | `POST /api/meta/vision-segment`; measured centroid/angular uncertainty on a synthetic star-tracker frame until live SAM wiring |
+| **CW-coupled maneuver validation (R5)** | ✅ Implemented | Along-track burns propagate via Clohessy-Wiltshire into the B-plane (regression-tested) |
+| **EPS eclipse survival (R6)** | ✅ Implemented | Analytical battery DoD gate in validator + EPG knowledge graph |
+| **Probability-dilution guard** | ✅ Implemented | Pc-max trigger in Stage 1 + SAM covariance-refinement loop |
 | **Mission Briefing judge tour** | ✅ Implemented | First-visit popup + header button; see `docs/images/mission-briefing.png` |
 
 ---
@@ -76,9 +79,9 @@ flowchart LR
 ```
 
 1. **Detect:** Onboard star tracker flags anomalous streaks against the sidereal background
-2. **Assess:** Foster (1992) 2D B-plane Pc via Gauss–Legendre polar quadrature
+2. **Assess:** Foster (1992) 2D B-plane Pc via Gauss–Legendre polar quadrature + Alfano Pc-max probability-dilution guard
 3. **Retrieve:** Edge retrieval engine ranks candidate Δv vectors by dot-product similarity
-4. **Validate:** Physics rules (Tsiolkovsky, burn time, perigee floor) + HJ reachability check
+4. **Validate:** Physics rules R1–R6 (Tsiolkovsky, burn time, perigee floor, CW-coupled risk reduction, EPS eclipse DoD) + HJ reachability check (FaBRIC-style backward-HJI + forward-HOCBF dual shield)
 5. **Filter:** CBF closed-form safety projection — system can ABORT if no safe maneuver exists
 
 ---
@@ -90,7 +93,7 @@ flowchart LR
 1. **Mission Briefing** opens on first visit (re-open anytime via the header button): four stages with one-click jumps to each live view.
 2. **3D Orbital Globe** (`orbital`): real TLE debris field + ISL mesh. **Edge Lab** (`clm-lab`): sub-16 ms retrieval + SAM 3.1 segmentation seam.
 3. **V&V Proof** (`verification`): run the 16 analytical oracles, then the 5-stage pipeline with EPG rule graph, HJ heatmap and CBF charts.
-4. **Backend Console** (`backend`): live FastAPI calls, including the Meta flight-director (works offline with a deterministic fallback directive).
+4. **Backend Console** (`backend`): live FastAPI calls, including the Meta flight-director (works offline) and the closed-loop recovery demo (watch ABORT at a 5 s horizon recover to EXECUTE with a symbolic tool trace).
 
 ---
 

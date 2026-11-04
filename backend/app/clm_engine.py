@@ -7,7 +7,9 @@ deterministic PRNG seed (not trained via InfoNCE or any loss function).
 
 In a production system, this codebook would be trained on astrodynamically valid
 escape trajectories using contrastive learning (InfoNCE loss). The current
-implementation demonstrates the retrieval architecture and API only.
+implementation demonstrates the retrieval architecture and API only; candidate
+quality is bounded downstream by the deterministic physics rule graph (R1-R5)
+in backend/app/vv/physics_validator.py, not by learned relevance.
 """
 
 import numpy as np
@@ -134,8 +136,9 @@ class CLMEngine:
         elif len(telemetry) == 4:
             return self.encode_state(telemetry)
         elif len(telemetry) < self.embedding_dim:
-            # Placeholder: zero-padding raw telemetry into 16-D space is a temporary placeholder
-            # for when full state embeddings are unavailable.
+            # Fallback for short raw telemetry: zero-pad into 16-D and
+            # L2-normalize (only when neither a full 16-D embedding nor the
+            # 4-D telemetry form is supplied).
             padded = list(telemetry) + [0] * (self.embedding_dim - len(telemetry))
             return l2_normalize(np.array(padded))
         else:

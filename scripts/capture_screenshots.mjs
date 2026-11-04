@@ -3,12 +3,39 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 
-const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-const EDGE_PATH = 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
-const PYTHON_PATH = 'C:\\VSCode Folder\\AEGIS-MESH\\backend\\venv\\Scripts\\python.exe';
+import { fileURLToPath } from 'url';
 
-const executablePath = fs.existsSync(CHROME_PATH) ? CHROME_PATH : EDGE_PATH;
-const outputDir = path.resolve('docs/images');
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.dirname(scriptDir);
+const outputDir = path.join(rootDir, 'docs', 'images');
+
+function resolveBrowser() {
+  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
+  const candidates =
+    process.platform === 'win32'
+      ? [
+          'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+          'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+          'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        ]
+      : process.platform === 'darwin'
+        ? ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome']
+        : ['/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+  return candidates.find((p) => fs.existsSync(p)) ?? candidates[0];
+}
+
+function resolvePython() {
+  const venvPython =
+    process.platform === 'win32'
+      ? path.join(rootDir, 'backend', 'venv', 'Scripts', 'python.exe')
+      : path.join(rootDir, 'backend', 'venv', 'bin', 'python');
+  if (fs.existsSync(venvPython)) return venvPython;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+const executablePath = resolveBrowser();
+const PYTHON_PATH = resolvePython();
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
@@ -31,12 +58,21 @@ async function waitForBackend(url, timeoutMs = 15000) {
 async function run() {
   console.log('Starting backend server...');
   const backendProc = spawn(PYTHON_PATH, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'], {
-    cwd: path.resolve('backend'),
+    cwd: path.join(rootDir, 'backend'),
     stdio: 'ignore',
   });
 
   const backendReady = await waitForBackend('http://127.0.0.1:8000/docs');
   console.log(`Backend ready: ${backendReady}`);
+
+  console.log('Starting frontend dev server...');
+  const frontendProc = spawn(
+    process.execPath,
+    [path.join(rootDir, 'node_modules', 'vite', 'bin', 'vite.js'), '--host', '127.0.0.1', '--port', '5173', '--strictPort'],
+    { cwd: rootDir, stdio: 'ignore' }
+  );
+  const frontendReady = await waitForBackend(FRONTEND_URL, 30000);
+  console.log(`Frontend ready: ${frontendReady}`);
 
   console.log(`Using browser: ${executablePath}`);
   const browser = await puppeteer.launch({
@@ -56,9 +92,19 @@ async function run() {
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
 
-  console.log('Navigating to http://localhost:5173...');
-  await page.goto('http://localhost:5173', { waitUntil: 'networkidle0', timeout: 30000 });
-  await new Promise((r) => setTimeout(r, 2000));
+  console.log(`Navigating to ${FRONTEND_URL}...`);
+  await page.goto(FRONTEND_URL, { waitUntil: 'networkidle0', timeout: 30000 });
+  await new Promise((r) => setTimeout(r, 2500));
+
+  // Mission Briefing auto-opens on first visit: capture it, then dismiss for clean views.
+  console.log('Capturing Mission Briefing...');
+  await page.screenshot({ path: path.join(outputDir, 'mission-briefing.png') });
+  await page.evaluate(() => {
+    localStorage.setItem('aegis_briefing_seen_v1', 'true');
+    const closeBtn = document.querySelector('button[aria-label="Close Mission Briefing"]');
+    if (closeBtn instanceof HTMLElement) closeBtn.click();
+  });
+  await new Promise((r) => setTimeout(r, 800));
 
   // 1. Mission Dashboard
   console.log('Capturing Mission Dashboard...');
@@ -166,6 +212,7 @@ async function run() {
 
   await browser.close();
   backendProc.kill();
+  frontendProc.kill();
   console.log('Screenshots refreshed with live backend active!');
 }
 

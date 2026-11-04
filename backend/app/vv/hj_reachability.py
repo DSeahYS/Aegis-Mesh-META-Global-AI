@@ -56,21 +56,33 @@ def solve_hj_grid(
     d_set = np.array([-d_max, 0.0, d_max])
 
     U, D = np.meshgrid(u_set, d_set, indexing="ij")
-    U_4d = U[:, :, None, None]
-    D_4d = D[:, :, None, None]
-    Y_4d = Y_grid[None, None, :, :]
-    V_4d = V_grid[None, None, :, :]
+    accel = (U + D)[:, :, None, None]
+    Y_next = Y_grid[None, None, :, :] + V_grid[None, None, :, :] * dt_actual + 0.5 * accel * (dt_actual ** 2)
+    V_next = V_grid[None, None, :, :] + accel * dt_actual
 
-    accel = U_4d + D_4d
-    Y_next = Y_4d + V_4d * dt_actual + 0.5 * accel * (dt_actual ** 2)
-    V_next = V_4d + accel * dt_actual
-    flat_pts = np.stack([Y_next, V_next], axis=-1).reshape(-1, 2)
+    # Precompute bilinear interpolation indices/weights once: Y_next/V_next are
+    # constant across steps, so each step is 4 fancy-index lookups instead of a
+    # fresh RegularGridInterpolator. Unclamped weights with indices clamped to
+    # the last cell reproduce fill_value=None linear extrapolation exactly.
+    dy = float(y_arr[1] - y_arr[0])
+    dv = float(v_arr[1] - v_arr[0])
+    fy = (Y_next - y_arr[0]) / dy
+    fv = (V_next - v_arr[0]) / dv
+    iy0 = np.clip(np.floor(fy).astype(np.int64), 0, grid_n - 2)
+    iv0 = np.clip(np.floor(fv).astype(np.int64), 0, grid_n - 2)
+    wy = fy - iy0
+    wv = fv - iv0
+    iy1 = iy0 + 1
+    iv1 = iv0 + 1
 
     t0 = time.perf_counter()
     for _ in range(steps):
-        # TODO: Performance — reuse interpolator across steps
-        interp = RegularGridInterpolator((y_arr, v_arr), V, method="linear", bounds_error=False, fill_value=None)
-        vals = interp(flat_pts).reshape(3, 3, grid_n, grid_n)
+        vals = (
+            V[iy0, iv0] * (1.0 - wy) * (1.0 - wv)
+            + V[iy1, iv0] * wy * (1.0 - wv)
+            + V[iy0, iv1] * (1.0 - wy) * wv
+            + V[iy1, iv1] * wy * wv
+        )
         # Disturbance minimizes (axis 1), evader maximizes (axis 0)
         V = np.max(np.min(vals, axis=1), axis=0)
     t1 = time.perf_counter()

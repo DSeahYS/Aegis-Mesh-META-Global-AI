@@ -28,6 +28,7 @@ import {
 import { HeatmapViz } from './HeatmapViz';
 import { LatentSpaceViz } from './LatentSpaceViz';
 import { CLMEvasionSim } from './CLMEvasionSim';
+import { runVisionSegment, type VisionSegmentResponse } from '../../lib/apiClient';
 
 // Preset collision scenarios for instant validation
 interface ThreatScenario {
@@ -105,6 +106,16 @@ export const CLMLab: React.FC = () => {
   const [executingManeuverId, setExecutingManeuverId] = useState<number | null>(null);
   const [lastExecutedLabel, setLastExecutedLabel] = useState<string | null>(null);
 
+  const [visionResult, setVisionResult] = useState<VisionSegmentResponse | null>(null);
+  const [visionBusy, setVisionBusy] = useState<boolean>(false);
+
+  const handleVisionSegment = async () => {
+    setVisionBusy(true);
+    const res = await runVisionSegment(['spacecraft body', 'solar array', 'debris fragment'], 'star-tracker-frame-demo');
+    setVisionResult(res);
+    setVisionBusy(false);
+  };
+
   // Global simulation store hooks
   const addTelemetryMessage = useSimulationStore((state) => state.addTelemetryMessage);
   const addAlert = useSimulationStore((state) => state.addAlert);
@@ -175,7 +186,7 @@ export const CLMLab: React.FC = () => {
 
     addTelemetryMessage({
       type: 'critical',
-      message: `[CLM-EXEC] Autonomous avoidance burn triggered: ${activeActionMeta.label} (Δv: ${activeActionMeta.deltaV.magnitude} m/s, dir: [${activeActionMeta.deltaV.direction.map((d) => d.toFixed(2)).join(', ')}]). In-browser latency: 15.8ms.`,
+      message: `[CLM-EXEC] Autonomous avoidance burn triggered: ${activeActionMeta.label} (Î”v: ${activeActionMeta.deltaV.magnitude} m/s, dir: [${activeActionMeta.deltaV.direction.map((d) => d.toFixed(2)).join(', ')}]). In-browser latency: 15.8ms.`,
       timestamp: Date.now() / 1000,
     });
 
@@ -201,6 +212,32 @@ export const CLMLab: React.FC = () => {
 
   return (
     <div className="w-full space-y-6 text-zinc-100 font-sans pb-10">
+
+      {/* SAM 3.1 Optical RSO Segmentation (Meta supervisory seam) */}
+      <div className="bg-zinc-950 border border-cyan-500/40 rounded-sm p-5 font-mono">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3 mb-3">
+          <h2 className="text-sm font-bold flex items-center gap-2 text-zinc-100">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            SAM 3.1 OPTICAL RSO SEGMENTATION
+          </h2>
+          <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-500/30">META SUPERVISORY</span>
+        </div>
+        <p className="text-[11px] text-zinc-400 mb-3">Promptable concept segmentation for star-tracker frames. Without a configured Meta key the backend returns a deterministic offline stub.</p>
+        <button type="button" onClick={handleVisionSegment} disabled={visionBusy} className="bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white py-2 px-6 rounded transition-colors text-xs font-semibold">{visionBusy ? 'SEGMENTING...' : 'RUN SAM 3.1 SEGMENTATION'}</button>
+        {visionResult && (
+          <div className="mt-4 space-y-2">
+            <div className="text-[10px] text-zinc-400">PROVIDER: <span className="text-cyan-300">{visionResult.provider}</span></div>
+            {visionResult.segments.map((s) => (
+              <div key={s.tracklet_id} className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-[11px]">
+                <span className="text-zinc-200">{s.prompt}</span>
+                <span className="text-zinc-500">{s.tracklet_id}</span>
+                <span className="text-cyan-300">bbox [{s.bbox_norm.join(', ')}]</span>
+              </div>
+            ))}
+            <div className="text-[10px] text-zinc-500">{visionResult.note}</div>
+          </div>
+        )}
+      </div>
       {/* ======================================================== */}
       {/* HEADER: AEGIS-MESH Edge Retrieval Inference Banner       */}
       {/* ======================================================== */}
@@ -226,7 +263,7 @@ export const CLMLab: React.FC = () => {
               AEGIS-MESH Edge Retrieval Inference
             </h1>
             <p className="text-xs text-zinc-400 font-mono max-w-4xl leading-relaxed">
-              Autonomous real-time state projection (z_s ∈ ℝ¹⁶) matched against a
+              Autonomous real-time state projection (z_s âˆˆ â„Â¹â¶) matched against a
               256-action quantized codebook via InfoNCE similarity dot-product kernels. Evaluates evasion
               trajectories under Hamilton-Jacobi Control Barrier Functions (CBF) with zero ground-in-the-loop delay.
             </p>
@@ -421,8 +458,8 @@ export const CLMLab: React.FC = () => {
             {/* Approach Geometry (Elevation & Azimuth) */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-zinc-950 p-2.5 rounded-sm border border-zinc-800">
-                <span className="text-[10px] text-zinc-500 block">ELEVATION (θ)</span>
-                <div className="text-xs font-bold text-zinc-200 mt-0.5">{elevation}°</div>
+                <span className="text-[10px] text-zinc-500 block">ELEVATION (Î¸)</span>
+                <div className="text-xs font-bold text-zinc-200 mt-0.5">{elevation}Â°</div>
                 <input
                   type="range"
                   min="-90"
@@ -434,8 +471,8 @@ export const CLMLab: React.FC = () => {
               </div>
 
               <div className="bg-zinc-950 p-2.5 rounded-sm border border-zinc-800">
-                <span className="text-[10px] text-zinc-500 block">AZIMUTH (ϕ)</span>
-                <div className="text-xs font-bold text-zinc-200 mt-0.5">{azimuth}°</div>
+                <span className="text-[10px] text-zinc-500 block">AZIMUTH (Ï•)</span>
+                <div className="text-xs font-bold text-zinc-200 mt-0.5">{azimuth}Â°</div>
                 <input
                   type="range"
                   min="0"
@@ -450,7 +487,7 @@ export const CLMLab: React.FC = () => {
             {/* Temperature Slider */}
             <div className="bg-zinc-950 p-2.5 rounded-sm border border-zinc-800 space-y-1">
               <div className="flex justify-between text-[10px]">
-                <span className="text-zinc-400">InfoNCE Temperature (τ):</span>
+                <span className="text-zinc-400">InfoNCE Temperature (Ï„):</span>
                 <span className="text-blue-300 font-bold">{temperature.toFixed(2)}</span>
               </div>
               <input
@@ -525,11 +562,11 @@ export const CLMLab: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Brain className="w-4 h-4 text-emerald-500" />
                 <span className="font-bold uppercase tracking-wider text-zinc-200 text-[11px]">
-                  State Latent Projection: z_s ∈ ℝ¹⁶
+                  State Latent Projection: z_s âˆˆ â„Â¹â¶
                 </span>
               </div>
               <span className="text-[10px] text-zinc-400">
-                ‖z_s‖₂ = 1.000 (Hypersphere)
+                â€–z_sâ€–â‚‚ = 1.000 (Hypersphere)
               </span>
             </div>
 
@@ -612,7 +649,7 @@ export const CLMLab: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-[10px] text-purple-300 uppercase tracking-wider">
-                    Action ID #{activeActionMeta.id} • {activeActionMeta.category}
+                    Action ID #{activeActionMeta.id} â€¢ {activeActionMeta.category}
                   </div>
                   <div className="text-base font-bold text-white font-sans mt-0.5">
                     {activeActionMeta.label}
@@ -630,7 +667,7 @@ export const CLMLab: React.FC = () => {
               {/* Technical Specifications Grid */}
               <div className="grid grid-cols-2 gap-2 mt-3 text-[11px] bg-zinc-900 p-2.5 rounded-sm border border-zinc-800">
                 <div>
-                  <span className="text-[9px] text-zinc-500 block uppercase">THRUST VECTOR (Δv)</span>
+                  <span className="text-[9px] text-zinc-500 block uppercase">THRUST VECTOR (Î”v)</span>
                   <span className="font-bold text-blue-300 text-xs">
                     {activeActionMeta.deltaV.magnitude} m/s
                   </span>
@@ -752,7 +789,7 @@ export const CLMLab: React.FC = () => {
           <Terminal className="w-4 h-4 text-blue-400 shrink-0" />
           <span>
             EDGE RETRIEVAL ENGINE:{' '}
-            <span className="text-emerald-500 font-bold">ONLINE (15.8ms HARD DETERMINISTIC)</span> • ZERO GROUND-IN-THE-LOOP DELAY
+            <span className="text-emerald-500 font-bold">ONLINE (15.8ms HARD DETERMINISTIC)</span> â€¢ ZERO GROUND-IN-THE-LOOP DELAY
           </span>
         </div>
 

@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { FC } from 'react';
-import { useSimulationStore } from './store/simulationStore';
+import { useSimulationStore, type ActiveView } from './store/simulationStore';
+import { MissionBriefingModal } from './components/layout/MissionBriefingModal';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { StatusBar } from './components/layout/StatusBar';
@@ -19,6 +20,29 @@ export const App: FC = () => {
   const isPlaying = useSimulationStore((state) => state.isPlaying);
   const timeScale = useSimulationStore((state) => state.timeScale);
   const advanceTime = useSimulationStore((state) => state.advanceTime);
+  const setActiveView = useSimulationStore((state) => state.setActiveView);
+
+  const [briefingOpen, setBriefingOpen] = useState(() => {
+    try {
+      return !localStorage.getItem('aegis_briefing_seen_v1');
+    } catch {
+      return true;
+    }
+  });
+
+  const handleCloseBriefing = () => {
+    try {
+      localStorage.setItem('aegis_briefing_seen_v1', 'true');
+    } catch {
+      // localStorage unavailable; still close the briefing.
+    }
+    setBriefingOpen(false);
+  };
+
+  const handleBriefingNavigate = (view: ActiveView) => {
+    setActiveView(view);
+    handleCloseBriefing();
+  };
 
   // Synchronous simulation clock loop
   useEffect(() => {
@@ -63,7 +87,7 @@ export const App: FC = () => {
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-zinc-950 text-zinc-200 antialiased font-sans select-none">
       {/* Top Header Bar */}
-      <Header />
+      <Header onOpenBriefing={() => setBriefingOpen(true)} />
 
       {/* Main Workspace (Sidebar + Active View) */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -75,6 +99,12 @@ export const App: FC = () => {
 
       {/* Bottom Status Bar */}
       <StatusBar />
+
+      <MissionBriefingModal
+        isOpen={briefingOpen}
+        onClose={handleCloseBriefing}
+        onNavigateView={handleBriefingNavigate}
+      />
     </div>
   );
 };

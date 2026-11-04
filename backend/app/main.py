@@ -7,9 +7,16 @@ from .cdm_parser import CDMParser
 from .tle_client import TLEClient, ts_to_jday
 from .conjunction_service import ConjunctionService
 import time
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from .vv import run_selftest, run_vv_pipeline, validate_cdm, build_epg_knowledge_graph
+from .meta_agent import (
+    MetaAgentError,
+    MetaAgentNotConfigured,
+    run_flight_director,
+    run_neuro_symbolic_agent,
+    run_vision_segment,
+)
 
 try:
     from simulators.spice_orbit_sim import (
@@ -278,6 +285,69 @@ async def execute_vv_pipeline(req: Optional[PipelineRequest] = None):
 @app.post("/api/vv/validate-cdm")
 async def validate_cdm_route(req: CDMRequest):
     return validate_cdm(req.cdmText)
+
+
+class FlightDirectorRequest(BaseModel):
+    cdm_summary: str = "CDM TEST-001: AEGIS-1 vs DEB-2024-981A"
+    telemetry_params: dict = Field(default_factory=dict)
+    mode: str = "deep"
+
+
+class VisionSegmentRequest(BaseModel):
+    prompts: List[str] = Field(
+        default_factory=lambda: ["spacecraft body", "solar array", "debris fragment"]
+    )
+    frame_ref: Optional[str] = None
+
+
+@app.post("/api/meta/flight-director")
+async def meta_flight_director(req: FlightDirectorRequest):
+    """Meta supervisory flight director grounded by V&V proof oracles.
+
+    Supervisory layer only: never called inside the <16 ms edge loop.
+    Returns a deterministic offline directive when no Meta key is configured.
+    """
+    try:
+        return run_flight_director(
+            cdm_summary=req.cdm_summary,
+            telemetry_params=req.telemetry_params or {},
+            mode=req.mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except MetaAgentNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except MetaAgentError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.post("/api/meta/vision-segment")
+async def meta_vision_segment(req: VisionSegmentRequest):
+    """SAM 3.1 segmentation seam (deterministic offline stub until wired)."""
+    return run_vision_segment(req.prompts, frame_ref=req.frame_ref)
+
+
+class AgentRequest(BaseModel):
+    cdm_summary: str = "CDM TEST-001: AEGIS-1 vs DEB-2024-981A"
+    telemetry_params: dict = Field(default_factory=dict)
+    mode: str = "fast"
+
+
+@app.post("/api/agent/run")
+async def run_agent(req: AgentRequest):
+    """Strict Meta agent route (no offline fallback; 503 when unconfigured)."""
+    try:
+        return run_neuro_symbolic_agent(
+            cdm_summary=req.cdm_summary,
+            telemetry_params=req.telemetry_params or {},
+            mode=req.mode,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except MetaAgentNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    except MetaAgentError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 class EPGRequest(BaseModel):

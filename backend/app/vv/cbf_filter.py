@@ -6,7 +6,10 @@ h_ddot + (alpha1 + alpha2)*h_dot + alpha1*alpha2*h >= 0
 Robust constraint: a^T u >= b, a = 2Mp, b = -2 p_dot^T M p_dot - (alpha1+alpha2)*h_dot - alpha1*alpha2*h + ||a||*d_max.
 
 Enforces safety envelope via closed-form projection (equivalent to QP for single constraint).
-Safety certificate evaluates forward invariance check (simulation-verified, not formally proven due to thrust clipping).
+Safety certificate evaluates the forward-invariance check by dual simulation. Thrust
+authority uses an input-constrained (IC-CBF) slack projection: infeasible steps apply
+max authority along the barrier gradient and are counted as saturated rather than
+silently rescaled, so the formal guarantee holds exactly on non-saturated steps.
 """
 
 import numpy as np
@@ -93,22 +96,27 @@ def run_cbf_simulation(
                 + norm_a * d_max
             )
 
-            # Closed-form projection (equivalent to QP for single constraint)
+            # IC-CBF slack projection: enforce a^T u >= b s.t. ||u|| <= u_max.
+            # The constraint is feasible iff b <= ||a|| * u_max. When feasible,
+            # project along a (max-authority along a if the projection itself
+            # exceeds authority); when infeasible, apply full authority along a
+            # and count a slack step instead of silently rescaling.
             a_dot_u = float(np.dot(a, u_nom))
             if a_dot_u >= b:
                 u = u_nom
             else:
                 interventions += 1
-                if norm_a > 1e-8:
-                    u = u_nom + ((b - a_dot_u) / (norm_a ** 2)) * a
+                if norm_a > 1e-8 and b <= norm_a * u_max + 1e-12:
+                    u_cand = u_nom + ((b - a_dot_u) / (norm_a ** 2)) * a
+                    if float(np.linalg.norm(u_cand)) <= u_max:
+                        u = u_cand
+                    else:
+                        u = (u_max / norm_a) * a
+                elif norm_a > 1e-8:
+                    saturated_steps += 1
+                    u = (u_max / norm_a) * a
                 else:
                     u = u_nom
-
-            # Note: Clipping thrust to u_max breaks the formal CBF guarantee. A feasibility check or slack variable would be needed for formal guarantees.
-            norm_u = float(np.linalg.norm(u))
-            if norm_u > u_max and norm_u > 1e-8:
-                saturated_steps += 1
-                u = u * (u_max / norm_u)
         else:
             u = u_nom
 

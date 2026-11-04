@@ -26,7 +26,7 @@ export const ArchitectureView: React.FC = () => {
               </h2>
             </div>
             <p className="text-xs text-zinc-400 mt-1 font-mono">
-              RADIATION-HARDENED RISC-V + FPGA HETEROGENEOUS COMPUTING • 16MS LATENT CLM RETRIEVAL
+              RADIATION-HARDENED RISC-V + FPGA HETEROGENEOUS COMPUTING â€¢ 16MS LATENT CLM RETRIEVAL
             </p>
           </div>
 
@@ -83,7 +83,7 @@ export const ArchitectureView: React.FC = () => {
         </div>
 
         {/* Global Architecture Spec Metric Strip */}
-        <div className="mt-4 pt-4 border-t border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-mono">
+        <div className="mt-4 pt-4 border-t border-zinc-800 grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs font-mono">
           <div className="bg-zinc-950 p-2.5 rounded-sm border border-zinc-800">
             <span className="text-zinc-500 text-[10px] block">PRIMARY SOC</span>
             <span className="text-zinc-200 font-bold mt-0.5 block">Microchip PolarFire RISC-V</span>
@@ -106,6 +106,12 @@ export const ArchitectureView: React.FC = () => {
             <span className="text-zinc-500 text-[10px] block">FORMAL SAFETY GUARANTEE</span>
             <span className="text-emerald-500 font-bold mt-0.5 block">Hamilton-Jacobi + CBF</span>
             <span className="text-[10px] text-zinc-400">Provable Forward Invariance</span>
+          </div>
+
+          <div className="bg-zinc-950 p-2.5 rounded-sm border border-zinc-800">
+            <span className="text-zinc-500 text-[10px] block">LEADER-TIER REASONING</span>
+            <span className="text-cyan-300 font-bold mt-0.5 block">Muse Glimmer 30B Edge</span>
+            <span className="text-[10px] text-zinc-400">Quantized, leader/ground node</span>
           </div>
         </div>
       </div>

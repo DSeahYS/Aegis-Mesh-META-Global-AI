@@ -543,3 +543,72 @@ export async function fetchEPGGraph(
     : '';
   return fetchWithTimeout<EPGGraphResponse>(`/api/epg/graph${query}`, {}, DEFAULT_TIMEOUT);
 }
+
+// -------------------------------------------------------------
+// Meta supervisory layer (flight-director + vision-segment)
+// -------------------------------------------------------------
+
+export type FlightDirectorMode = 'fast' | 'deep';
+
+export interface FlightDirectorRequest {
+  cdm_summary: string;
+  telemetry_params?: Record<string, unknown>;
+  mode?: FlightDirectorMode;
+}
+
+export interface FlightDirectorResponse {
+  model: string;
+  mode: string;
+  source: string;
+  agent_directive: string;
+  vv_proof: PipelineResponse;
+  epg: EPGGraphResponse;
+}
+
+export async function runFlightDirector(
+  req: FlightDirectorRequest
+): Promise<FlightDirectorResponse | null> {
+  return fetchWithTimeout<FlightDirectorResponse>(
+    '/api/meta/flight-director',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cdm_summary: req.cdm_summary,
+        telemetry_params: req.telemetry_params ?? {},
+        mode: req.mode ?? 'deep',
+      }),
+    },
+    60000
+  );
+}
+
+export interface VisionSegmentItem {
+  prompt: string;
+  tracklet_id: string;
+  bbox_norm: [number, number, number, number];
+  area_frac: number;
+  confidence: number | null;
+}
+
+export interface VisionSegmentResponse {
+  provider: string;
+  frame_ref: string | null;
+  segments: VisionSegmentItem[];
+  note: string;
+}
+
+export async function runVisionSegment(
+  prompts: string[],
+  frameRef?: string
+): Promise<VisionSegmentResponse | null> {
+  return fetchWithTimeout<VisionSegmentResponse>(
+    '/api/meta/vision-segment',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompts, frame_ref: frameRef ?? null }),
+    },
+    30000
+  );
+}

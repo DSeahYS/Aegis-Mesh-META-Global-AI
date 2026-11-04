@@ -38,6 +38,7 @@ class ConjunctionService:
         tca = None
         b_plane = None
         rel_speed = 0.0
+        best_i = None
 
         for i in range(steps):
             jd = jd_now + (i * step_seconds) / 86400.0
@@ -51,10 +52,50 @@ class ConjunctionService:
             miss = float(np.linalg.norm(dr))
             if miss < min_miss:
                 min_miss = miss
+                best_i = i
                 tca = now + i * step_seconds
                 b_plane = self.cara_engine.compute_b_plane(r1, v1, r2, v2)
                 dv = np.array(v2) - np.array(v1)
                 rel_speed = float(np.linalg.norm(dv))
+
+        # Refine TCA: a 60 s grid at 11-14 km/s relative velocity spans
+        # 660-840 km per step and can step over a sub-km encounter, so bracket
+        # the coarse best sample and minimize miss(t) continuously.
+        if best_i is not None and steps > 0:
+            from scipy.optimize import minimize_scalar
+
+            def _miss_at(t_unix: float):
+                jd_t, fr_t = ts_to_jday(t_unix)
+                e1_, r1_, v1_ = sat1.sgp4(jd_t, fr_t)
+                e2_, r2_, v2_ = sat2.sgp4(jd_t, fr_t)
+                if e1_ != 0 or e2_ != 0:
+                    return None
+                d_ = float(np.linalg.norm(np.array(r2_) - np.array(r1_)))
+                return d_, r1_, v1_, r2_, v2_
+
+            def _miss_only(t: float) -> float:
+                out = _miss_at(t)
+                return out[0] if out is not None else float("inf")
+
+            lo_t = now + max(0, best_i - 1) * step_seconds
+            hi_t = now + min(steps - 1, best_i + 1) * step_seconds
+            if hi_t > lo_t:
+                opt = minimize_scalar(
+                    _miss_only,
+                    bounds=(lo_t, hi_t),
+                    method="bounded",
+                    options={"xatol": 1e-3},
+                )
+                refined = _miss_at(float(opt.x))
+                if refined is not None and refined[0] < min_miss:
+                    min_miss = refined[0]
+                    tca = float(opt.x)
+                    b_plane = self.cara_engine.compute_b_plane(
+                        refined[1], refined[2], refined[3], refined[4]
+                    )
+                    rel_speed = float(
+                        np.linalg.norm(np.array(refined[4]) - np.array(refined[2]))
+                    )
 
         return {
             "primary": tle1.get("name", catnr1),

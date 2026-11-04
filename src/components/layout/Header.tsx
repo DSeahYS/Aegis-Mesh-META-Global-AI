@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { Play, Pause, Clock, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Play, Pause, Clock, AlertCircle, ShieldCheck, Sparkles } from 'lucide-react';
 import { useSimulationStore } from '../../store/simulationStore';
 
 const VIEW_TITLES: Record<string, string> = {
@@ -28,7 +28,11 @@ function formatUtcTime(epochSeconds: number): string {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds} UTC`;
 }
 
-export const Header: FC = () => {
+interface HeaderProps {
+  onOpenBriefing?: () => void;
+}
+
+export const Header: FC<HeaderProps> = ({ onOpenBriefing }) => {
   const activeView = useSimulationStore((state) => state.activeView);
   const setActiveView = useSimulationStore((state) => state.setActiveView);
   const simulationTime = useSimulationStore((state) => state.simulationTime);
@@ -161,6 +165,17 @@ export const Header: FC = () => {
           <AlertCircle className="w-3.5 h-3.5" />
           <span>{totalAlerts} ALERTS</span>
         </div>
+
+        {/* Mission Briefing / Judge Tour */}
+        <button
+          type="button"
+          onClick={onOpenBriefing}
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-purple-950/80 hover:bg-purple-900/80 border border-purple-500/40 text-purple-300 text-xs font-mono font-bold transition-colors cursor-pointer"
+          title="Open the Mission Briefing / Judge's Fast-Track Tour"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+          <span>MISSION BRIEFING</span>
+        </button>
 
         {/* Quick Link to V&V Proof Tab */}
         <button

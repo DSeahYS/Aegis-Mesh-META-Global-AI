@@ -52,6 +52,12 @@ export const HardwareStack: React.FC = () => {
         </div>
       </div>
 
+      {/* Leader-tier reasoning callout */}
+      <div className="mx-5 mt-5 px-4 py-3 rounded-sm border border-cyan-500/40 bg-cyan-950/20 flex flex-col sm:flex-row sm:items-center gap-2">
+        <span className="text-[10px] font-mono font-bold text-cyan-300 tracking-wider">LEADER-TIER REASONING</span>
+        <span className="text-xs text-zinc-300">Muse Glimmer 30B (quantized edge weights) runs on the constellation-leader / ground node for supervisory planning; flight nodes keep the sub-ms CLM codebook + deterministic rule graph.</span>
+      </div>
+
       {/* Grid of Hardware Cards */}
       <div className="p-5 bg-zinc-950 grid grid-cols-1 lg:grid-cols-2 gap-5">
         {hardwarePlatforms.map((hw) => {

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdm xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="CCSDS_CDM_VERS" version="2.0">
+  <header>
+    <COMMENT>Conjunction Data Message generated for AEGIS-MESH Fallback Test</COMMENT>
+    <CREATION_DATE>2026-10-03T12:00:00.000Z</CREATION_DATE>
+    <ORIGINATOR>18 SPCS / AEGIS-MESH</ORIGINATOR>
+    <MESSAGE_FOR>AEGIS-MESH FLIGHT SOFTWARE</MESSAGE_FOR>
+    <MESSAGE_ID>AEGIS-XML-20261003-001</MESSAGE_ID>
+  </header>
+  <body>
+    <relativeMetadata>
+      <TCA>2026-10-04T02:30:15.120Z</TCA>
+      <MISS_DISTANCE units="m">182.4</MISS_DISTANCE>
+      <RELATIVE_SPEED units="m/s">11250.0</RELATIVE_SPEED>
+      <relativeStateVector>
+        <RELATIVE_POSITION_R units="m">42.1</RELATIVE_POSITION_R>
+        <RELATIVE_POSITION_T units="m">-156.8</RELATIVE_POSITION_T>
+        <RELATIVE_POSITION_N units="m">82.5</RELATIVE_POSITION_N>
+        <RELATIVE_VELOCITY_R units="m/s">15.2</RELATIVE_VELOCITY_R>
+        <RELATIVE_VELOCITY_T units="m/s">-11245.0</RELATIVE_VELOCITY_T>
+        <RELATIVE_VELOCITY_N units="m/s">332.1</RELATIVE_VELOCITY_N>
+      </relativeStateVector>
+      <START_SCREEN_PERIOD>2026-10-03T00:00:00.000Z</START_SCREEN_PERIOD>
+      <STOP_SCREEN_PERIOD>2026-10-05T00:00:00.000Z</STOP_SCREEN_PERIOD>
+      <COLLISION_PROBABILITY>1.84e-04</COLLISION_PROBABILITY>
+      <COLLISION_PROBABILITY_METHOD>FOSTER-1992</COLLISION_PROBABILITY_METHOD>
+    </relativeMetadata>
+    <segment>
+      <metadata>
+        <OBJECT>OBJECT1</OBJECT>
+        <OBJECT_DESIGNATOR>25544</OBJECT_DESIGNATOR>
+        <OBJECT_NAME>ISS (ZARYA)</OBJECT_NAME>
+        <INTERNATIONAL_DESIGNATOR>1998-067A</INTERNATIONAL_DESIGNATOR>
+        <OBJECT_TYPE>PAYLOAD</OBJECT_TYPE>
+        <MANEUVERABLE>YES</MANEUVERABLE>
+        <REF_FRAME>RTN</REF_FRAME>
+      </metadata>
+      <data>
+        <covarianceMatrix>
+          <CR_R>450.0</CR_R>
+          <CT_R>80.0</CT_R>
+          <CT_T>2400.0</CT_T>
+          <CN_R>-15.0</CN_R>
+          <CN_T>45.0</CN_T>
+          <CN_N>320.0</CN_N>
+        </covarianceMatrix>
+      </data>
+    </segment>
+    <segment>
+      <metadata>
+        <OBJECT>OBJECT2</OBJECT>
+        <OBJECT_DESIGNATOR>34125</OBJECT_DESIGNATOR>
+        <OBJECT_NAME>COSMOS 2251 DEBRIS</OBJECT_NAME>
+        <INTERNATIONAL_DESIGNATOR>1993-036KW</INTERNATIONAL_DESIGNATOR>
+        <OBJECT_TYPE>DEBRIS</OBJECT_TYPE>
+        <MANEUVERABLE>NO</MANEUVERABLE>
+        <REF_FRAME>RTN</REF_FRAME>
+      </metadata>
+      <data>
+        <covarianceMatrix>
+          <CR_R>1850.0</CR_R>
+          <CT_R>320.0</CT_R>
+          <CT_T>9500.0</CT_T>
+          <CN_R>-40.0</CN_R>
+          <CN_T>180.0</CN_T>
+          <CN_N>1200.0</CN_N>
+        </covarianceMatrix>
+      </data>
+    </segment>
+  </body>
+</cdm>

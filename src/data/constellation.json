@@ -1,0 +1,290 @@
+[
+  {
+    "id": "AEGIS-01",
+    "name": "Alpha Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.4,
+      "eccentricity": 0.0008,
+      "inclination": 53.2,
+      "raan": 0.0,
+      "argumentOfPerigee": 45.2,
+      "trueAnomaly": 0.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Microchip PolarFire SoC",
+      "power": 4.5,
+      "memory": 2048
+    },
+    "health": {
+      "powerLevel": 96.4,
+      "radiationDose": 1.25,
+      "computeLoad": 28.5,
+      "fuelRemaining": 91.2
+    }
+  },
+  {
+    "id": "AEGIS-02",
+    "name": "Bravo Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.8,
+      "eccentricity": 0.0006,
+      "inclination": 53.2,
+      "raan": 0.0,
+      "argumentOfPerigee": 48.0,
+      "trueAnomaly": 90.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Intel Myriad X NCS2",
+      "power": 2.5,
+      "memory": 4096
+    },
+    "health": {
+      "powerLevel": 94.8,
+      "radiationDose": 1.42,
+      "computeLoad": 34.0,
+      "fuelRemaining": 88.5
+    }
+  },
+  {
+    "id": "AEGIS-03",
+    "name": "Charlie Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.1,
+      "eccentricity": 0.0011,
+      "inclination": 53.2,
+      "raan": 0.0,
+      "argumentOfPerigee": 52.6,
+      "trueAnomaly": 180.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Unibap SpaceCloud iX5-100",
+      "power": 14.8,
+      "memory": 8192
+    },
+    "health": {
+      "powerLevel": 92.1,
+      "radiationDose": 1.88,
+      "computeLoad": 42.1,
+      "fuelRemaining": 86.0
+    }
+  },
+  {
+    "id": "AEGIS-04",
+    "name": "Delta Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6920.9,
+      "eccentricity": 0.0014,
+      "inclination": 53.2,
+      "raan": 0.0,
+      "argumentOfPerigee": 55.1,
+      "trueAnomaly": 270.0
+    },
+    "status": "alert",
+    "hardware": {
+      "processor": "Microchip PolarFire SoC",
+      "power": 5.1,
+      "memory": 2048
+    },
+    "health": {
+      "powerLevel": 88.2,
+      "radiationDose": 2.45,
+      "computeLoad": 78.4,
+      "fuelRemaining": 83.7
+    }
+  },
+  {
+    "id": "AEGIS-05",
+    "name": "Echo Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6922.0,
+      "eccentricity": 0.0005,
+      "inclination": 53.2,
+      "raan": 120.0,
+      "argumentOfPerigee": 62.4,
+      "trueAnomaly": 0.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Intel Myriad X NCS2",
+      "power": 2.4,
+      "memory": 4096
+    },
+    "health": {
+      "powerLevel": 97.0,
+      "radiationDose": 1.15,
+      "computeLoad": 22.3,
+      "fuelRemaining": 94.1
+    }
+  },
+  {
+    "id": "AEGIS-06",
+    "name": "Foxtrot Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.5,
+      "eccentricity": 0.0009,
+      "inclination": 53.2,
+      "raan": 120.0,
+      "argumentOfPerigee": 66.8,
+      "trueAnomaly": 90.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Microchip PolarFire SoC",
+      "power": 4.6,
+      "memory": 2048
+    },
+    "health": {
+      "powerLevel": 95.3,
+      "radiationDose": 1.38,
+      "computeLoad": 31.8,
+      "fuelRemaining": 90.5
+    }
+  },
+  {
+    "id": "AEGIS-07",
+    "name": "Golf Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6923.2,
+      "eccentricity": 0.0018,
+      "inclination": 53.2,
+      "raan": 120.0,
+      "argumentOfPerigee": 71.3,
+      "trueAnomaly": 180.0
+    },
+    "status": "maneuvering",
+    "hardware": {
+      "processor": "Unibap SpaceCloud iX5-100",
+      "power": 16.2,
+      "memory": 8192
+    },
+    "health": {
+      "powerLevel": 83.5,
+      "radiationDose": 2.62,
+      "computeLoad": 85.9,
+      "fuelRemaining": 72.4
+    }
+  },
+  {
+    "id": "AEGIS-08",
+    "name": "Hotel Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.3,
+      "eccentricity": 0.0007,
+      "inclination": 53.2,
+      "raan": 120.0,
+      "argumentOfPerigee": 74.0,
+      "trueAnomaly": 270.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Intel Myriad X NCS2",
+      "power": 2.6,
+      "memory": 4096
+    },
+    "health": {
+      "powerLevel": 93.9,
+      "radiationDose": 1.54,
+      "computeLoad": 26.7,
+      "fuelRemaining": 87.2
+    }
+  },
+  {
+    "id": "AEGIS-09",
+    "name": "India Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.6,
+      "eccentricity": 0.0004,
+      "inclination": 53.2,
+      "raan": 240.0,
+      "argumentOfPerigee": 80.5,
+      "trueAnomaly": 0.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Microchip PolarFire SoC",
+      "power": 4.4,
+      "memory": 2048
+    },
+    "health": {
+      "powerLevel": 98.2,
+      "radiationDose": 1.05,
+      "computeLoad": 19.5,
+      "fuelRemaining": 96.0
+    }
+  },
+  {
+    "id": "AEGIS-10",
+    "name": "Juliet Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.9,
+      "eccentricity": 0.0010,
+      "inclination": 53.2,
+      "raan": 240.0,
+      "argumentOfPerigee": 83.2,
+      "trueAnomaly": 90.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Unibap SpaceCloud iX5-100",
+      "power": 13.9,
+      "memory": 8192
+    },
+    "health": {
+      "powerLevel": 91.4,
+      "radiationDose": 1.95,
+      "computeLoad": 38.6,
+      "fuelRemaining": 84.9
+    }
+  },
+  {
+    "id": "AEGIS-11",
+    "name": "Kilo Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.2,
+      "eccentricity": 0.0008,
+      "inclination": 53.2,
+      "raan": 240.0,
+      "argumentOfPerigee": 87.6,
+      "trueAnomaly": 180.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Intel Myriad X NCS2",
+      "power": 2.5,
+      "memory": 4096
+    },
+    "health": {
+      "powerLevel": 95.0,
+      "radiationDose": 1.30,
+      "computeLoad": 24.8,
+      "fuelRemaining": 89.3
+    }
+  },
+  {
+    "id": "AEGIS-12",
+    "name": "Lima Node",
+    "orbitalElements": {
+      "semiMajorAxis": 6921.7,
+      "eccentricity": 0.0012,
+      "inclination": 53.2,
+      "raan": 240.0,
+      "argumentOfPerigee": 91.0,
+      "trueAnomaly": 270.0
+    },
+    "status": "nominal",
+    "hardware": {
+      "processor": "Microchip PolarFire SoC",
+      "power": 4.7,
+      "memory": 2048
+    },
+    "health": {
+      "powerLevel": 93.1,
+      "radiationDose": 1.60,
+      "computeLoad": 30.2,
+      "fuelRemaining": 85.8
+    }
+  }
+]

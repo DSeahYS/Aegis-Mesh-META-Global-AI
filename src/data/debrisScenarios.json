@@ -1,0 +1,182 @@
+[
+  {
+    "id": "CONJ-2026-001",
+    "name": "SL-16 R/B Spent Rocket Stage Passing",
+    "timestamp": "2026-10-04T08:15:30Z",
+    "primarySatellite": "AEGIS-02",
+    "debris": {
+      "catalogId": "SSN-22285",
+      "estimatedSize": 380.0,
+      "relativeVelocity": 7.42,
+      "type": "cataloged"
+    },
+    "conjunction": {
+      "tca": "2026-10-04T11:45:12Z",
+      "missDistance": 1250.4,
+      "pc": 0.0000082,
+      "bPlane": {
+        "xi": 840.2,
+        "zeta": 924.5
+      },
+      "relativeStateVector": {
+        "x": 740.1,
+        "y": -450.3,
+        "z": 890.7,
+        "vx": -5.12,
+        "vy": 4.88,
+        "vz": -2.31
+      }
+    },
+    "maneuver": {
+      "deltaV": [0.0, 0.0, 0.0],
+      "burnDuration": 0.0,
+      "fuelCost": 0.0,
+      "status": "aborted"
+    },
+    "severity": "low"
+  },
+  {
+    "id": "CONJ-2026-002",
+    "name": "Fengyun-1C Anti-Satellite Debris Incursion",
+    "timestamp": "2026-10-04T12:30:00Z",
+    "primarySatellite": "AEGIS-08",
+    "debris": {
+      "catalogId": "SSN-34582",
+      "estimatedSize": 18.5,
+      "relativeVelocity": 9.85,
+      "type": "cataloged"
+    },
+    "conjunction": {
+      "tca": "2026-10-04T16:02:44Z",
+      "missDistance": 480.0,
+      "pc": 0.000145,
+      "bPlane": {
+        "xi": -312.4,
+        "zeta": 365.1
+      },
+      "relativeStateVector": {
+        "x": -280.5,
+        "y": 310.2,
+        "z": -234.8,
+        "vx": 6.82,
+        "vy": -6.44,
+        "vz": 3.12
+      }
+    },
+    "maneuver": {
+      "deltaV": [0.08, -0.02, 0.15],
+      "burnDuration": 14.5,
+      "fuelCost": 0.12,
+      "status": "planned"
+    },
+    "severity": "medium"
+  },
+  {
+    "id": "CONJ-2026-003",
+    "name": "Cosmos 1408 ASAT Hypervelocity Fragment",
+    "timestamp": "2026-10-04T15:10:00Z",
+    "primarySatellite": "AEGIS-06",
+    "debris": {
+      "catalogId": "SSN-49863",
+      "estimatedSize": 8.2,
+      "relativeVelocity": 11.64,
+      "type": "cataloged"
+    },
+    "conjunction": {
+      "tca": "2026-10-04T17:58:19Z",
+      "missDistance": 135.2,
+      "pc": 0.00287,
+      "bPlane": {
+        "xi": 92.5,
+        "zeta": -98.7
+      },
+      "relativeStateVector": {
+        "x": 88.4,
+        "y": -74.1,
+        "z": 67.9,
+        "vx": -8.12,
+        "vy": 7.45,
+        "vz": -4.01
+      }
+    },
+    "maneuver": {
+      "deltaV": [0.35, 0.12, -0.42],
+      "burnDuration": 38.0,
+      "fuelCost": 0.48,
+      "status": "planned"
+    },
+    "severity": "high"
+  },
+  {
+    "id": "CONJ-2026-004",
+    "name": "Iridium-33 Collision Remnant Intersection",
+    "timestamp": "2026-10-04T16:45:00Z",
+    "primarySatellite": "AEGIS-07",
+    "debris": {
+      "catalogId": "SSN-34110",
+      "estimatedSize": 4.5,
+      "relativeVelocity": 12.38,
+      "type": "cataloged"
+    },
+    "conjunction": {
+      "tca": "2026-10-04T18:22:05Z",
+      "missDistance": 48.6,
+      "pc": 0.0154,
+      "bPlane": {
+        "xi": -32.8,
+        "zeta": 35.9
+      },
+      "relativeStateVector": {
+        "x": -31.2,
+        "y": 28.5,
+        "z": -24.7,
+        "vx": 8.94,
+        "vy": -7.82,
+        "vz": 4.25
+      }
+    },
+    "maneuver": {
+      "deltaV": [0.65, -0.25, 0.82],
+      "burnDuration": 62.0,
+      "fuelCost": 0.95,
+      "status": "executed"
+    },
+    "severity": "critical"
+  },
+  {
+    "id": "CONJ-2026-005",
+    "name": "Uncatalogued Hypervelocity Micro-Debris Intercept",
+    "timestamp": "2026-10-04T18:05:00Z",
+    "primarySatellite": "AEGIS-04",
+    "debris": {
+      "catalogId": null,
+      "estimatedSize": 0.8,
+      "relativeVelocity": 13.92,
+      "type": "uncatalogued"
+    },
+    "conjunction": {
+      "tca": "2026-10-04T18:41:30Z",
+      "missDistance": 14.8,
+      "pc": 0.0842,
+      "bPlane": {
+        "xi": 9.4,
+        "zeta": -11.5
+      },
+      "relativeStateVector": {
+        "x": 10.2,
+        "y": -7.6,
+        "z": 8.1,
+        "vx": -9.88,
+        "vy": 8.92,
+        "vz": -4.85
+      }
+    },
+    "maneuver": {
+      "deltaV": [1.25, 0.45, -1.1],
+      "burnDuration": 95.0,
+      "fuelCost": 1.82,
+      "status": "planned"
+    },
+    "severity": "critical"
+  }
+]

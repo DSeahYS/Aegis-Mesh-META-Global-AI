@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production build output
+dist/
+dist-ssr/
+*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor & OS files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+.pytest_cache/
+
+# IDE & Antigravity internal runtime
+.antigravity/
+
+# Antigravity config
+.antigravityrc
+
+# Generated outputs
+backend/simulators/power_profile_90min.csv
+backend/simulators/power_profile_90min.png
+backend/simulators/tegra_power_profile.csv
+backend/simulators/tegra_power_report.json
+backend/tests/live_nasa_e2e_report.json
+*.tsbuildinfo
+
+# Temporary migration & search scripts
+apply_hud.py
+find_*.py
+

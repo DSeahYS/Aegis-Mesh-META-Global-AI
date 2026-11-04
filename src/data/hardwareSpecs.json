@@ -1,0 +1,81 @@
+[
+  {
+    "name": "Microchip PolarFire SoC",
+    "architecture": "RISC-V 64-bit + Low-Power FPGA Fabric (Rad-Tolerant)",
+    "cores": "4x SiFive U54-MC RV64GC + 1x E51 monitor core + 254K LE FPGA",
+    "dynamicLatency": "< 15 ms",
+    "peakPower": "< 4.5 W",
+    "targetWorkload": "Hard Real-Time Orbit Propagation, Sensor Fusion & Autonomous Decision Logic",
+    "suitable": true,
+    "pros": [
+      "Single-Event Upset (SEU) immune FPGA configuration memory",
+      "Cold-sparing capable with deterministic hard real-time latency",
+      "Ultra-low standby and active power consumption (< 4.5 W)",
+      "Total Ionizing Dose (TID) tolerance exceeding 100 krad",
+      "Integrated RISC-V open architecture with zero vendor lock-in"
+    ],
+    "cons": [
+      "Lower peak raw FLOPS compared to commercial GPU coprocessors",
+      "Complex FPGA synthesis toolchain and bitstream verification cycle"
+    ]
+  },
+  {
+    "name": "Intel Myriad X NCS2",
+    "architecture": "Vision Processing Unit (VPU) with Neural Compute Engine",
+    "cores": "16x SHAVE 128-bit Vector DSPs + 2x Dedicated Neural Compute Engines (1 TOPS)",
+    "dynamicLatency": "< 20 ms",
+    "peakPower": "< 2.5 W",
+    "targetWorkload": "Fast CNN Optical Debris Detection, Relative B-Plane Feature Tracking",
+    "suitable": true,
+    "pros": [
+      "High inference throughput per watt (> 0.4 TOPS/W)",
+      "Flight heritage and space qualification pedigree (ESA PhiSat-1)",
+      "Ultra-low operational power envelope (1.5 W - 2.5 W)",
+      "Hardware-native FP16 and INT8 tensor acceleration engines"
+    ],
+    "cons": [
+      "COTS silicon requiring external Triple Modular Redundancy (TMR) supervision",
+      "Limited integrated on-chip memory (512 MB LPDDR4), bottlenecking large models",
+      "Non-deterministic latency when dealing with out-of-frame object tracking"
+    ]
+  },
+  {
+    "name": "Jetson Nano ARM",
+    "architecture": "Commercial Quad-Core ARM Cortex-A57 (COTS)",
+    "cores": "4x ARM Cortex-A57 MPCore @ 1.43 GHz",
+    "dynamicLatency": "~45 ms",
+    "peakPower": "5 - 10 W",
+    "targetWorkload": "High-Level Swarm Orchestration, Linux OS Services, MESH Telemetry",
+    "suitable": false,
+    "pros": [
+      "Rich Linux developer ecosystem with ROS/ROS2 space packages",
+      "High general-purpose integer arithmetic performance",
+      "Standard POSIX threading and containerized application support"
+    ],
+    "cons": [
+      "High vulnerability to destructive Single-Event Latchup (SEL) in LEO radiation belts",
+      "Excessive thermal dissipation requirements inside 3U/6U CubeSat vacuum frames",
+      "Non-deterministic OS kernel scheduling unsuitable for hard collision evasion deadlines",
+      "Unshielded plastic packaging prone to outgassing and micro-fractures"
+    ]
+  },
+  {
+    "name": "Jetson Nano Maxwell GPU",
+    "architecture": "NVIDIA Maxwell Architecture (128 CUDA Cores)",
+    "cores": "128 CUDA cores @ 921 MHz (472 GFLOPS FP16)",
+    "dynamicLatency": "< 18 ms",
+    "peakPower": "10 - 15 W",
+    "targetWorkload": "Dense Batch Orbit Monte Carlo Uncertainty Propagation, Neural Evasion Training",
+    "suitable": false,
+    "pros": [
+      "Extremely high floating-point matrix multiplication throughput (472 GFLOPS)",
+      "Native TensorRT and CUDA acceleration libraries"
+    ],
+    "cons": [
+      "Power consumption (> 10 W) drastically exceeds SmallSat orbit average power (OAP) budget",
+      "Catastrophic latch-up sensitivity requiring complex rapid-cycle current limiter hardware",
+      "Thermal throttling in vacuum environment without massive heat-pipe radiator assemblies",
+      "Zero radiation tolerance heritage or TID characterization for multi-year missions"
+    ]
+  }
+]

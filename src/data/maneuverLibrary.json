@@ -1,0 +1,262 @@
+[
+  {
+    "id": "MNV-001",
+    "label": "Prograde Micro-Burn",
+    "category": "prograde",
+    "deltaV": {
+      "magnitude": 0.15,
+      "direction": [1.0, 0.0, 0.0]
+    },
+    "burnDuration": 12.0,
+    "fuelCost": 0.08,
+    "embedding": [0.82, 0.05, 0.01, -0.12, 0.44, 0.63, -0.25, 0.18],
+    "applicableThreats": ["overtaking", "trailing coplanar"]
+  },
+  {
+    "id": "MNV-002",
+    "label": "Prograde Nominal Phasing",
+    "category": "prograde",
+    "deltaV": {
+      "magnitude": 0.75,
+      "direction": [1.0, 0.0, 0.0]
+    },
+    "burnDuration": 45.0,
+    "fuelCost": 0.35,
+    "embedding": [0.88, 0.12, -0.04, -0.08, 0.51, 0.72, -0.18, 0.22],
+    "applicableThreats": ["overtaking", "in-track close approach"]
+  },
+  {
+    "id": "MNV-003",
+    "label": "Prograde Apogee Lift",
+    "category": "prograde",
+    "deltaV": {
+      "magnitude": 2.1,
+      "direction": [1.0, 0.0, 0.0]
+    },
+    "burnDuration": 110.0,
+    "fuelCost": 1.15,
+    "embedding": [0.94, 0.21, -0.08, 0.02, 0.65, 0.81, -0.11, 0.35],
+    "applicableThreats": ["head-on coplanar", "overtaking high-energy"]
+  },
+  {
+    "id": "MNV-004",
+    "label": "Prograde Rapid Altitude Climb",
+    "category": "prograde",
+    "deltaV": {
+      "magnitude": 4.5,
+      "direction": [1.0, 0.0, 0.0]
+    },
+    "burnDuration": 220.0,
+    "fuelCost": 2.45,
+    "embedding": [0.98, 0.34, -0.15, 0.15, 0.78, 0.91, -0.05, 0.48],
+    "applicableThreats": ["head-on", "debris cloud passage", "cascade avoidance"]
+  },
+  {
+    "id": "MNV-005",
+    "label": "Retrograde Drift Injection",
+    "category": "retrograde",
+    "deltaV": {
+      "magnitude": 0.2,
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    "burnDuration": 15.0,
+    "fuelCost": 0.11,
+    "embedding": [-0.79, -0.06, 0.02, 0.14, -0.38, -0.58, 0.21, -0.15],
+    "applicableThreats": ["leading coplanar", "slow closing"]
+  },
+  {
+    "id": "MNV-006",
+    "label": "Retrograde Semi-Major Drop",
+    "category": "retrograde",
+    "deltaV": {
+      "magnitude": 0.85,
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    "burnDuration": 52.0,
+    "fuelCost": 0.44,
+    "embedding": [-0.86, -0.15, 0.06, 0.18, -0.49, -0.69, 0.28, -0.22],
+    "applicableThreats": ["head-on coplanar", "fast closing"]
+  },
+  {
+    "id": "MNV-007",
+    "label": "Retrograde Perigee Lowering",
+    "category": "retrograde",
+    "deltaV": {
+      "magnitude": 2.4,
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    "burnDuration": 125.0,
+    "fuelCost": 1.28,
+    "embedding": [-0.92, -0.24, 0.11, 0.25, -0.62, -0.81, 0.35, -0.31],
+    "applicableThreats": ["head-on high-speed", "polar crossing"]
+  },
+  {
+    "id": "MNV-008",
+    "label": "Retrograde Emergency Deceleration",
+    "category": "retrograde",
+    "deltaV": {
+      "magnitude": 4.8,
+      "direction": [-1.0, 0.0, 0.0]
+    },
+    "burnDuration": 240.0,
+    "fuelCost": 2.6,
+    "embedding": [-0.97, -0.38, 0.18, 0.32, -0.76, -0.92, 0.42, -0.44],
+    "applicableThreats": ["critical head-on", "anti-satellite fragment swarm"]
+  },
+  {
+    "id": "MNV-009",
+    "label": "Radial-In Nadir Deflection Minor",
+    "category": "radial-in",
+    "deltaV": {
+      "magnitude": 0.35,
+      "direction": [0.0, -1.0, 0.0]
+    },
+    "burnDuration": 22.0,
+    "fuelCost": 0.19,
+    "embedding": [0.08, -0.81, 0.12, 0.45, 0.15, -0.22, 0.65, 0.11],
+    "applicableThreats": ["zenith approach", "crossing zenith"]
+  },
+  {
+    "id": "MNV-010",
+    "label": "Radial-In Orbit Contraction",
+    "category": "radial-in",
+    "deltaV": {
+      "magnitude": 1.2,
+      "direction": [0.0, -1.0, 0.0]
+    },
+    "burnDuration": 68.0,
+    "fuelCost": 0.65,
+    "embedding": [0.12, -0.89, 0.18, 0.52, 0.22, -0.31, 0.74, 0.18],
+    "applicableThreats": ["crossing", "descending node intercept"]
+  },
+  {
+    "id": "MNV-011",
+    "label": "Radial-In High-Impulse Dive",
+    "category": "radial-in",
+    "deltaV": {
+      "magnitude": 3.2,
+      "direction": [0.0, -1.0, 0.0]
+    },
+    "burnDuration": 165.0,
+    "fuelCost": 1.72,
+    "embedding": [0.19, -0.96, 0.25, 0.61, 0.31, -0.45, 0.85, 0.27],
+    "applicableThreats": ["high-angle crossing", "eccentric intercept"]
+  },
+  {
+    "id": "MNV-012",
+    "label": "Radial-Out Zenith Clearance",
+    "category": "radial-out",
+    "deltaV": {
+      "magnitude": 0.4,
+      "direction": [0.0, 1.0, 0.0]
+    },
+    "burnDuration": 25.0,
+    "fuelCost": 0.22,
+    "embedding": [-0.07, 0.82, -0.11, -0.42, -0.14, 0.24, -0.62, -0.09],
+    "applicableThreats": ["nadir approach", "crossing nadir"]
+  },
+  {
+    "id": "MNV-013",
+    "label": "Radial-Out Orbit Expansion",
+    "category": "radial-out",
+    "deltaV": {
+      "magnitude": 1.35,
+      "direction": [0.0, 1.0, 0.0]
+    },
+    "burnDuration": 74.0,
+    "fuelCost": 0.72,
+    "embedding": [-0.11, 0.9, -0.16, -0.51, -0.21, 0.33, -0.71, -0.16],
+    "applicableThreats": ["crossing", "ascending node intercept"]
+  },
+  {
+    "id": "MNV-014",
+    "label": "Radial-Out High-Impulse Surge",
+    "category": "radial-out",
+    "deltaV": {
+      "magnitude": 3.5,
+      "direction": [0.0, 1.0, 0.0]
+    },
+    "burnDuration": 180.0,
+    "fuelCost": 1.88,
+    "embedding": [-0.18, 0.97, -0.24, -0.63, -0.32, 0.48, -0.83, -0.25],
+    "applicableThreats": ["high-angle crossing", "rapid ascending threat"]
+  },
+  {
+    "id": "MNV-015",
+    "label": "Cross-Track Normal Kick North",
+    "category": "cross-track",
+    "deltaV": {
+      "magnitude": 0.5,
+      "direction": [0.0, 0.0, 1.0]
+    },
+    "burnDuration": 30.0,
+    "fuelCost": 0.27,
+    "embedding": [0.02, 0.15, 0.85, -0.34, 0.55, 0.12, 0.31, -0.42],
+    "applicableThreats": ["coplanar side-swipe", "crossing orthogonal"]
+  },
+  {
+    "id": "MNV-016",
+    "label": "Cross-Track Anti-Normal Kick South",
+    "category": "cross-track",
+    "deltaV": {
+      "magnitude": 0.5,
+      "direction": [0.0, 0.0, -1.0]
+    },
+    "burnDuration": 30.0,
+    "fuelCost": 0.27,
+    "embedding": [-0.03, -0.14, -0.86, 0.35, -0.54, -0.11, -0.29, 0.41],
+    "applicableThreats": ["coplanar side-swipe", "crossing orthogonal"]
+  },
+  {
+    "id": "MNV-017",
+    "label": "Cross-Track Plane Shift Severe",
+    "category": "cross-track",
+    "deltaV": {
+      "magnitude": 2.8,
+      "direction": [0.0, 0.0, 1.0]
+    },
+    "burnDuration": 145.0,
+    "fuelCost": 1.52,
+    "embedding": [0.09, 0.28, 0.95, -0.48, 0.72, 0.25, 0.44, -0.58],
+    "applicableThreats": ["polar orbital crossing", "high-inclination collision"]
+  },
+  {
+    "id": "MNV-018",
+    "label": "Combined Prograde Out-of-Plane Shear",
+    "category": "combined",
+    "deltaV": {
+      "magnitude": 1.65,
+      "direction": [0.7071, 0.0, 0.7071]
+    },
+    "burnDuration": 90.0,
+    "fuelCost": 0.89,
+    "embedding": [0.68, 0.14, 0.65, -0.28, 0.62, 0.55, 0.18, -0.12],
+    "applicableThreats": ["oblique crossing", "shallow-angle conjunction"]
+  },
+  {
+    "id": "MNV-019",
+    "label": "Combined Retrograde Radial Drop Corkscrew",
+    "category": "combined",
+    "deltaV": {
+      "magnitude": 2.5,
+      "direction": [-0.6, -0.8, 0.0]
+    },
+    "burnDuration": 130.0,
+    "fuelCost": 1.35,
+    "embedding": [-0.65, -0.72, 0.12, 0.44, -0.35, -0.58, 0.58, -0.19],
+    "applicableThreats": ["hypervelocity crossing", "uncatalogued micro-debris"]
+  },
+  {
+    "id": "MNV-020",
+    "label": "Combined Tri-Axial Evasive Dispersal",
+    "category": "combined",
+    "deltaV": {
+      "magnitude": 4.1,
+      "direction": [0.5774, 0.5774, -0.5774]
+    },
+    "burnDuration": 210.0,
+    "fuelCost": 2.2,
+    "embedding": [0.55, 0.52, -0.58, -0.32, 0.41, 0.62, -0.45, 0.38],
+    "applicableThreats": ["critical uncatalogued swarm", "multiple conjunction warning"]
+  }
+]

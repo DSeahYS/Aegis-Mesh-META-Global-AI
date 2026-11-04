@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  clm-benchmark:
+    build: .
+    volumes:
+      - ./results:/app/results
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  clm-benchmark-constrained:
+    build: .
+    volumes:
+      - ./results:/app/results
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M

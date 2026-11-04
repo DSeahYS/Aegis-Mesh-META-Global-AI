@@ -2,6 +2,7 @@
 
 ### Autonomous Edge Guidance & ISL Swarm Mesh for Decentralized Space Domain Awareness & Collision Avoidance
 
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live%20Demo-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://aegismesh-14zrruswr-daves-projects-6f81832c.vercel.app/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![React 18](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
 [![Three.js](https://img.shields.io/badge/Three.js-r170-black?style=for-the-badge&logo=three.js)](https://threejs.org/)
@@ -10,8 +11,9 @@
 
 > **One-sentence pitch:** AEGIS-MESH is an oracle-first neuro-symbolic flight director for the Meta Global AI Developer Hackathon: deterministic V&V, HJI reachability and CBF certificates run **before** Muse Spark 1.3 / Muse Wonder 1.0 are allowed to explain, recover or synthesize a maneuver — so the AI can reason about spaceflight without hallucinating physics.
 
-> **Judge in 2 minutes:** open the app → the **Mission Briefing** tour teleports you through the 3D globe, SAM 3.1 vision seam, closed-loop ABORT→EXECUTE recovery and 16 live V&V oracles. One command runs the whole stack: `docker compose up --build` → http://localhost:5173 (API docs: http://localhost:8000/docs).
+> **Judge in 2 minutes:** open the app → the **Mission Briefing** tour teleports you through the 3D globe, SAM 3.1 vision seam, closed-loop ABORT→EXECUTE recovery and 16 live V&V oracles. Experience the **[Live Web Demo](https://aegismesh-14zrruswr-daves-projects-6f81832c.vercel.app/)** or run the whole stack locally: `docker compose up --build` → http://localhost:5173 (API docs: http://localhost:8000/docs).
 
+🌐 **[Live Demo on Vercel: aegismesh-14zrruswr-daves-projects-6f81832c.vercel.app](https://aegismesh-14zrruswr-daves-projects-6f81832c.vercel.app/)**  
 🚀 **[Looking for deep mathematical proofs and system architecture? Read the Detailed Technical Guide (Nerd's Guide) here!](README_DETAILED.md)**
 
 ![AEGIS-MESH 3D Orbital Globe](docs/images/hero-orbital-globe.png)
@@ -128,6 +130,10 @@ No step trusts the language model with physics: every Meta statement is grounded
 ---
 
 ## Quickstart
+
+### 🌐 Instant Live Demo
+Access the live web deployment directly without local installation:
+👉 **[https://aegismesh-14zrruswr-daves-projects-6f81832c.vercel.app/](https://aegismesh-14zrruswr-daves-projects-6f81832c.vercel.app/)**
 
 ### Prerequisites
 
